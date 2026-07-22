@@ -106,12 +106,15 @@ private:
         double stw // speed through water (m/s)
     )
     {
-        if (stw == 0) {
-            return 0;
+        static constexpr double MINSTW = 0.5; // minimum speed (m/s) for leeway calculation to prevent math explosion
+        static constexpr double MAXLAY = 30.0 * DEG_TO_RAD; // cap leeway at this level of degree; 
+
+        if (stw < MINSTW) {
+            return 0; 
         }
 
         double lay = leeK * roll / (stw * stw);
-        return lay;
+        return std::min(lay, MAXLAY);
     }
 
     double calcCTW(

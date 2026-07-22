@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include "GwApi.h"
 #include "Pagedata.h"
+#include "OBPDataOperations.h"
 
 // ToDo
 // simulation data
@@ -219,7 +220,7 @@ FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool 
             course = M_PI_2 + float(random(-17, 17) / 100.0); // create random course/wind values with 90° +/- 10°
             rawvalue = course;
         }
-        course = course * RAD_TO_DEG;      // Unit conversion form rad to deg
+        course = WindUtils::to360(course * RAD_TO_DEG);      // Unit conversion form rad to deg
 
         // Format 3 numbers with prefix zero
         snprintf(buffer,bsize,"%03.0f",course);

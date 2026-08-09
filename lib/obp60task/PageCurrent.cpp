@@ -16,7 +16,7 @@ static const std::unordered_map<std::string, int> leeKMap = {
     { "Multihull Fixed Keel [16]", 16 }
 };
 
-enum bValIdx {
+enum bValueIdx {
     ROLL = 0,
     SET,
     DFT,
@@ -30,7 +30,7 @@ enum bValIdx {
     NUM_VALS
 };
 
-// Screen coordinates for boat values
+// Screen coordinates for boat value, name, unit
 struct Points {
     int16_t x1, y1;
     int16_t x2, y2;
@@ -126,9 +126,9 @@ private:
         double ctw; // course through water (rad true)
 
         if (awa >= M_PI) { // apparent wind > 180° -> comes from port
-            ctw = hdt + lay;
+            ctw = WindUtils::to2PI(hdt + lay);
         } else { // wind comes from starboard
-            ctw = hdt - lay;
+            ctw = WindUtils::to2PI(hdt - lay);
         }
 
         return ctw;
@@ -231,7 +231,9 @@ private:
         float direction // angle the arrow is pointing to [0..2PI]
     )
     {
-        if (size < 0.05) { // no arrow for current set below 0.05 m/s
+        static constexpr double MINSIZE = 0.05; // minimum current set (size) (m/s) for arrow size
+
+        if (size < MINSIZE) { // no arrow for current set below 0.05 m/s
             return;
         }
 

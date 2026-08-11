@@ -2,16 +2,122 @@
 
 #include "Pagedata.h"
 #include "OBP60Extensions.h"
+#include "GwApi.h"
 
 class PageDST810 : public Page
 {
+private:
+    GwLog* logger;
+
+    enum LogMode {
+        LOG,
+        TRIP
+    };
+
+    int width; // Screen width
+    int height; // Screen height
+
+    bool keylock = false; // Keylock
+    bool useSimuData;
+    bool holdValues;
+    String flashLED;
+    String backlightMode;
+    String lengthformat;
+    uint8_t dst810Address = 255; // N2k device address of DST810 triducer (255 = broadcast)
+
+    LogMode logMode = TRIP; // Mode for log data
+    bool rstTripLog = false; // Indicator for reset command of trip log data
+
+    // Old values for hold function
+    String svalue1old = "";
+    String unit1old = "";
+    String svalue2old = "";
+    String unit2old = "";
+    String svalue3old = "";
+    String unit3old = "";
+    String svalue4old = "";
+    String unit4old = "";
+
+    // send NMEA2000 message 126208 for reset of trip log data on Airmar DST 810 triducer
+    void resetTripLog(PageData &pageData, uint8_t n2kTarget) {
+        tN2kMsg n2kMsg;
+
+        n2kMsg.Clear();                          // initialise message / clear
+        n2kMsg.SetPGN(126208L);                  // PGN 126208 (NMEA group function)
+        n2kMsg.Priority = 3;                     // message specific priority
+        n2kMsg.Destination = n2kTarget;          // should specify real destination, but cannot query it out of user task
+
+        // Payload for PGN 126208 (Command)
+        n2kMsg.AddByte(0x01);                    // Byte 0: function code = command (1)
+        n2kMsg.Add3ByteInt(128275);              // Bytes 1–3: target PGN 128275 (distance log)
+        n2kMsg.AddByte(0xFF);                    // Byte 4: priority - don't change
+        n2kMsg.AddByte(0x01);                    // Byte 5: no. of parameter = 1
+        n2kMsg.AddByte(0x04);                    // Byte 6: parameter index = 4 (distance since last reset)
+        n2kMsg.Add4ByteUInt(0);                  // Bytes 7-10: value = 0 (reset)
+
+        pageData.api->sendN2kMessage(n2kMsg, true);
+        LOG_DEBUG(GwLog::DEBUG, "N2k PGN 126208 to DST810 sent. Target address: %u", n2kTarget);
+    }
+
 public:
     PageDST810(CommonData &common){
         commonData = &common;
-        common.logger->logDebug(GwLog::LOG,"Instantiate PageDST810");
+        logger = commonData->logger;
+        LOG_DEBUG(GwLog::LOG, "Instantiate PageDST810");
+
+        width = getdisplay().width(); // Screen width
+        height = getdisplay().height(); // Screen height
+
+        // Get config data
+        useSimuData = commonData->config->getBool(commonData->config->useSimuData);
+        holdValues = commonData->config->getBool(commonData->config->holdvalues);
+        flashLED = commonData->config->getString(commonData->config->flashLED);
+        backlightMode = commonData->config->getString(commonData->config->backlight);
+        lengthformat = commonData->config->getString(commonData->config->lengthFormat);
+#if defined BOARD_OBP60S3
+        dst810Address = uint(commonData->config->getInt(commonData->config->dst810Target));
+#endif
     }
 
-    virtual int handleKey(int key){
+    virtual void setupKeys()
+    {
+        Page::setupKeys();
+
+        commonData->keydata[0].label = "MODE";
+#if defined BOARD_OBP60S3
+        constexpr int RST_KEY = 4;
+        if (logMode == TRIP) { // show "RESET" key only if trip log data is selected
+            commonData->keydata[RST_KEY].label = "RESET";
+        } else {
+            commonData->keydata[RST_KEY].label = "";
+        }
+#endif
+    }
+
+virtual int handleKey(int key){
+
+        if (key == 1) {
+            switch (logMode) {
+            case TRIP:
+                logMode = LOG;
+                break;
+            case LOG:
+                logMode = TRIP;
+                break;
+            }
+            setupKeys(); // Adjust key definition depending on <logMode>
+            return 0; // Commit the key
+        }
+
+#if defined BOARD_OBP60S3
+        // OBP40 cannot send N2k messages
+        // Reset trip log if <reset> button has been pressed
+        if (key == 5  && logMode == TRIP) {
+            rstTripLog = true;
+            return 0; // Commit the key
+        }
+#endif
+
         // Code for keylock
         if(key == 11){
             commonData->keylock = !commonData->keylock;
@@ -20,78 +126,79 @@ public:
         return key;
     }
 
-    int displayPage(PageData &pageData){
-        GwConfigHandler *config = commonData->config;
-        GwLog *logger = commonData->logger;
-
-        // Old values for hold function
-        static String svalue1old = "";
-        static String unit1old = "";
-        static String svalue2old = "";
-        static String unit2old = "";
-        static String svalue3old = "";
-        static String unit3old = "";
-        static String svalue4old = "";
-        static String unit4old = "";
-
-        // Get config data
-        String lengthformat = config->getString(config->lengthFormat);
-        // bool simulation = config->getBool(config->useSimuData);
-        bool holdvalues = config->getBool(config->holdvalues);
-        String flashLED = config->getString(config->flashLED);
-        String backlightMode = config->getString(config->backlight);
+    virtual void displayNew(PageData& pageData)
+    {
+#ifdef BOARD_OBP60S3
+        // Clear optical warning
+        if (flashLED == "Limit Violation") {
+            setBlinkingLED(false);
+            setFlashLED(false);
+        }
+#endif
+    }
         
-        // Get boat values #1
-        GwApi::BoatValue *bvalue1 = pageData.values[0]; // First element in list (only one value by PageOneValue)
+    int displayPage(PageData &pageData){
+
+        // Get boat values #1 - DBT
+        GwApi::BoatValue *bvalue1 = pageData.values[0]; // First element in list
         String name1 = xdrDelete(bvalue1->getName());   // Value name
-        name1 = name1.substring(0, 6);                  // String length limit for value name
         double value1 = bvalue1->value;                 // Value as double in SI unit
         bool valid1 = bvalue1->valid;                   // Valid information 
         String svalue1 = formatValue(bvalue1, *commonData).svalue;    // Formatted value as string including unit conversion and switching decimal places
         String unit1 = formatValue(bvalue1, *commonData).unit;        // Unit of value
 
-        // Get boat values #2
-        GwApi::BoatValue *bvalue2 = pageData.values[1]; // Second element in list (only one value by PageOneValue)
+        // Get boat values #2 - STW
+        GwApi::BoatValue *bvalue2 = pageData.values[1]; // Second element in list
         String name2 = xdrDelete(bvalue2->getName());   // Value name
-        name2 = name2.substring(0, 6);                  // String length limit for value name
         double value2 = bvalue2->value;                 // Value as double in SI unit
         bool valid2 = bvalue2->valid;                   // Valid information 
         String svalue2 = formatValue(bvalue2, *commonData).svalue;    // Formatted value as string including unit conversion and switching decimal places
         String unit2 = formatValue(bvalue2, *commonData).unit;        // Unit of value
 
-        // Get boat values #3
-        GwApi::BoatValue *bvalue3 = pageData.values[2]; // Second element in list (only one value by PageOneValue)
+        // Get boat values #3 - TripLog or Log
+        GwApi::BoatValue *bvalue3;
+        if (logMode == TRIP) {
+            bvalue3 = pageData.values[2]; // Second element in list -> TripLog
+        } else {
+            bvalue3 = pageData.values[3]; // Third element in list -> Log
+        }
         String name3 = xdrDelete(bvalue3->getName());   // Value name
-        name3 = name3.substring(0, 6);                  // String length limit for value name
         double value3 = bvalue3->value;                 // Value as double in SI unit
         bool valid3 = bvalue3->valid;                   // Valid information 
         String svalue3 = formatValue(bvalue3, *commonData).svalue;    // Formatted value as string including unit conversion and switching decimal places
         String unit3 = formatValue(bvalue3, *commonData).unit;        // Unit of value
 
-        // Get boat values #4
-        GwApi::BoatValue *bvalue4 = pageData.values[3]; // Second element in list (only one value by PageOneValue)
+        // Get boat values #4 - WTemp
+        GwApi::BoatValue *bvalue4 = pageData.values[4]; // Second element in list
         String name4 = xdrDelete(bvalue4->getName());   // Value name
-        name4 = name4.substring(0, 6);                  // String length limit for value name
         double value4 = bvalue4->value;                 // Value as double in SI unit
         bool valid4 = bvalue4->valid;                   // Valid information 
         String svalue4 = formatValue(bvalue4, *commonData).svalue;    // Formatted value as string including unit conversion and switching decimal places
         String unit4 = formatValue(bvalue4, *commonData).unit;        // Unit of value
 
-        // Optical warning by limit violation (unused)
-        if(String(flashLED) == "Limit Violation"){
-            setBlinkingLED(false);
-            setFlashLED(false); 
+        if (bvalue1 == NULL) return PAGE_OK;
+
+        if (rstTripLog) { // user pressed reset buttion for trip log data
+            resetTripLog(pageData, dst810Address);
+            buzzer(TONE3, 150);
+            LOG_DEBUG(GwLog::LOG,"PageDST810: Trip log data reset performed. N2k target address: %u", dst810Address);
+
+            rstTripLog = false;
         }
 
-        // Logging boat values
-        if (bvalue1 == NULL) return PAGE_OK; // WTF why this statement?
+        // Optical warning by limit violation (unused)
+        /* if(String(flashLED) == "Limit Violation"){
+            setBlinkingLED(false);
+            setFlashLED(false); 
+        } */
+
         LOG_DEBUG(GwLog::LOG,"Drawing at PageDST810, %s: %f, %s: %f, %s: %f, %s: %f", name1.c_str(), value1, name2.c_str(), value2, name3.c_str(), value3, name4.c_str(), value4);
 
         // Draw page
         //***********************************************************
 
         // Set display in partial refresh mode
-        displaySetPartialWindow(0, 0, getdisplay().width(), getdisplay().height()); // Set partial update
+        displaySetPartialWindow(0, 0, width, height); // Set partial update
 
         getdisplay().setTextColor(commonData->fgcolor);
 
@@ -105,7 +212,7 @@ public:
         // Show unit
         getdisplay().setFont(&Ubuntu_Bold12pt8b);
         getdisplay().setCursor(20, 90);
-        if(holdvalues == false){
+        if(holdValues == false){
             getdisplay().print(unit1);                       // Unit
         }
         else{
@@ -117,7 +224,7 @@ public:
         getdisplay().setCursor(180, 90);
 
         // Show bus data
-        if(holdvalues == false){
+        if(holdValues == false){
             getdisplay().print(svalue1);                                     // Real value as formated string
         }
         else{
@@ -138,12 +245,12 @@ public:
         // Show name
         getdisplay().setFont(&Ubuntu_Bold20pt8b);
         getdisplay().setCursor(20, 145);
-        getdisplay().print("Speed");                         // Page name
+        getdisplay().print("Speed");
 
         // Show unit
         getdisplay().setFont(&Ubuntu_Bold12pt8b);
         getdisplay().setCursor(20, 180);
-        if(holdvalues == false){
+        if(holdValues == false){
             getdisplay().print(unit2);                       // Unit
         }
         else{
@@ -155,7 +262,7 @@ public:
         getdisplay().setCursor(180, 180);
 
         // Show bus data
-        if(holdvalues == false){
+        if(holdValues == false){
             getdisplay().print(svalue2);                                     // Real value as formated string
         }
         else{
@@ -171,17 +278,17 @@ public:
         // Horizontal line 3 pix
         getdisplay().fillRect(0, 195, 400, 3, commonData->fgcolor);
 
-        // ############### Value 3 ################
+        // ############### Value 3 ################ - TripLog / Log
 
         // Show name
         getdisplay().setFont(&Ubuntu_Bold12pt8b);
         getdisplay().setCursor(20, 220);
-        getdisplay().print("Log");                           // Page name
+        getdisplay().print(name3);                          // [TripLog | Log]
 
         // Show unit
         getdisplay().setFont(&Ubuntu_Bold8pt8b);
         getdisplay().setCursor(20, 240);
-        if(holdvalues == false){
+        if(holdValues == false){
             getdisplay().print(unit3);                       // Unit
         }
         else{
@@ -193,7 +300,7 @@ public:
         getdisplay().setCursor(80, 270);
 
         // Show bus data
-        if(holdvalues == false){
+        if(holdValues == false){
             getdisplay().print(svalue3);                                     // Real value as formated string
         }
         else{
@@ -209,17 +316,17 @@ public:
         // Vertical line 3 pix
         getdisplay().fillRect(200, 195, 3, 75, commonData->fgcolor);
 
-        // ############### Value 4 ################
+        // ############### Value 4 ################ - WTemp
 
         // Show name
         getdisplay().setFont(&Ubuntu_Bold12pt8b);
         getdisplay().setCursor(220, 220);
-        getdisplay().print("Temp");                           // Page name
+        getdisplay().print(name4);                           // WTemp
 
         // Show unit
         getdisplay().setFont(&Ubuntu_Bold8pt8b);
         getdisplay().setCursor(220, 240);
-        if(holdvalues == false){
+        if(holdValues == false){
             getdisplay().print(unit4);                       // Unit
         }
         else{
@@ -231,7 +338,7 @@ public:
         getdisplay().setCursor(280, 270);
 
         // Show bus data
-        if(holdvalues == false){
+        if(holdValues == false){
             getdisplay().print(svalue4);                                     // Real value as formated string
         }
         else{
@@ -259,7 +366,7 @@ PageDescription registerPageDST810(
     "DST810",           // Page name
     createPage,         // Action
     0,                  // Number of bus values depends on selection in Web configuration
-    {"DBT","STW","Log","WTemp"},      // Bus values we need in the page
+    {"DBT","STW","TripLog","Log","WTemp"},      // Bus values we need in the page
     true                // Show display header on/off
 );
 

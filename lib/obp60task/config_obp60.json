@@ -280,6 +280,20 @@
         }
     },
     {
+        "name": "dst810Target",
+        "label": "DST810 N2k Address",
+        "type": "number",
+        "default": "255",
+        "check": "checkMinMax",
+        "min": 1,
+        "max": 255,
+        "description": "NMEA2000 device address of DST810 triducer",
+        "category": "OBP60 Settings",
+        "capabilities": {
+            "obp60":"true"
+        }
+    },
+    {
         "name": "lengthFormat",
         "label": "Length Format",
         "type": "list",

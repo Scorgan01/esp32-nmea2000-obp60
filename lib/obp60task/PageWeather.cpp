@@ -223,14 +223,12 @@ public:
             bValue.push_back(pageData.values[i]);
         }
 
-        // Optical warning by limit violation (unused)
-        if (String(flashLED) == "Limit Violation") {
-            setBlinkingLED(false);
-            setFlashLED(false);
-        }
-
-        if (bValue[0] == NULL && bValue[1] == NULL && bValue[2] == NULL && bValue[3] == NULL)
+        if (bValue[0] == NULL && bValue[1] == NULL && bValue[2] == NULL && bValue[3] == NULL) {
             return PAGE_OK; // no data, no page to display
+        }
+        if (dataHstryBuf == nullptr) { // no buffer for main boat data item, no page display
+            return PAGE_OK;
+        }
 
         LOG_DEBUG(GwLog::DEBUG, "PageWeather: printing #1: %s, %.3f, %s, #2: %s, %.3f, %s, #3: %s, %.3f, %s, #4: %s, %.3f, %s",
             bValue[0]->getName().c_str(), bValue[0]->value, bValue[0]->getFormat().c_str(), bValue[1]->getName().c_str(), bValue[1]->value, bValue[1]->getFormat().c_str(),
@@ -241,9 +239,6 @@ public:
 
         displaySetPartialWindow(0, 0, width, height); // Set partial update
 
-        if (dataHstryBuf == nullptr) { // no buffer for main boat data item, no page display
-            return PAGE_UPDATE;
-        }
         if (!dataChart[0]->isValid()) {
             dataChart[0]->init(); // try late initialization if chart object could not be properly initialized earlier due to missing boat data
         }
@@ -281,5 +276,4 @@ PageDescription registerPageWeather(
     { }, // Bus values we need in the page
     true // Show display header on/off
 );
-
 #endif

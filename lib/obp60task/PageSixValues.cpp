@@ -6,165 +6,154 @@
 const int SixValues_x1 = 5;
 const int SixValues_DeltaX = 200;
 
-// const int SixValues_y1 = 23;
 const int SixValues_y1 = 22;
 const int SixValues_DeltaY = 83;
 
 const int HowManyValues = 6;
 
-class PageSixValues : public Page
-{
-    public:
-    PageSixValues(CommonData &common){
+class PageSixValues : public Page {
+public:
+    PageSixValues(CommonData& common)
+    {
         commonData = &common;
-        common.logger->logDebug(GwLog::LOG,"Instantiate PageSixValues");
+        common.logger->logDebug(GwLog::LOG, "Instantiate PageSixValues");
     }
 
-    virtual int handleKey(int key){
+    virtual int handleKey(int key)
+    {
         // Code for keylock
-        if(key == 11){
+        if (key == 11) {
             commonData->keylock = !commonData->keylock;
-            return 0;                   // Commit the key
+            return 0; // Commit the key
         }
         return key;
     }
 
-    int displayPage(PageData &pageData){
-        GwConfigHandler *config = commonData->config;
-        GwLog *logger = commonData->logger;
+    int displayPage(PageData& pageData)
+    {
+        GwConfigHandler* config = commonData->config;
+        GwLog* logger = commonData->logger;
 
-         
-            // Old values for hold function
-            static String OldDataText[HowManyValues] = {"", "", "", "", "", ""};
-            static String OldDataUnits[HowManyValues] = {"", "", "", "", "", ""};
-    
-            // Get config data
-            String lengthformat = config->getString(config->lengthFormat);
-            // bool simulation = config->getBool(config->useSimuData);
-            bool holdvalues = config->getBool(config->holdvalues);
-            String flashLED = config->getString(config->flashLED);
-            String backlightMode = config->getString(config->backlight);
-            
-            GwApi::BoatValue *bvalue;
-            String DataName[HowManyValues];
-            double DataValue[HowManyValues];
-            bool DataValid[HowManyValues];
-            String DataText[HowManyValues];
-            String DataUnits[HowManyValues];
-            String DataFormat[HowManyValues];
-    
-            for (int i = 0; i < HowManyValues; i++){
-                bvalue = pageData.values[i];
-                DataName[i] = xdrDelete(bvalue->getName());
-                DataName[i] = DataName[i].substring(0, 6);                  // String length limit for value name
-                DataValue[i] = bvalue->value;                 // Value as double in SI unit
-                DataValid[i] = bvalue->valid;
-                DataText[i] = formatValue(bvalue, *commonData).svalue;    // Formatted value as string including unit conversion and switching decimal places
-                DataUnits[i] = formatValue(bvalue, *commonData).unit;   
-                DataFormat[i] = bvalue->getFormat();     // Unit of value
-            }
-    
-            // Optical warning by limit violation (unused)
-            if(String(flashLED) == "Limit Violation"){
-                setBlinkingLED(false);
-                setFlashLED(false); 
-            }
-    
-            if (bvalue == NULL) return PAGE_OK; // WTF why this statement?
-           
-            // Draw page
-            //***********************************************************
-    
-            // Set display in partial refresh mode
-            displaySetPartialWindow(0, 0, getdisplay().width(), getdisplay().height()); // Set partial update
-            getdisplay().setTextColor(commonData->fgcolor);
+        // Old values for hold function
+        static String OldDataText[HowManyValues] = { "", "", "", "", "", "" };
+        static String OldDataUnits[HowManyValues] = { "", "", "", "", "", "" };
 
-            for (int i = 0; i < ( HowManyValues / 2 ); i++){
-                if (i < (HowManyValues / 2) - 1) {          // Don't draw horizontal line after last line of values -> standard design
-                   // Horizontal line 3 pix
-                    getdisplay().fillRect(0, SixValues_y1+(i+1)*SixValues_DeltaY, 400, 3, commonData->fgcolor);
+        // Get config data
+        String lengthformat = config->getString(config->lengthFormat);
+        bool holdvalues = config->getBool(config->holdvalues);
+        String flashLED = config->getString(config->flashLED);
+        String backlightMode = config->getString(config->backlight);
+
+        GwApi::BoatValue* bvalue;
+        String DataName[HowManyValues];
+        double DataValue[HowManyValues];
+        bool DataValid[HowManyValues];
+        String DataText[HowManyValues];
+        String DataUnits[HowManyValues];
+        String DataFormat[HowManyValues];
+
+        for (int i = 0; i < HowManyValues; i++) {
+            bvalue = pageData.values[i];
+            DataName[i] = xdrDelete(bvalue->getName());
+            DataName[i] = DataName[i].substring(0, 6); // String length limit for value name
+            DataValue[i] = bvalue->value; // Value as double in SI unit
+            DataValid[i] = bvalue->valid;
+            DataText[i] = formatValue(bvalue, *commonData).svalue; // Formatted value as string including unit conversion and switching decimal places
+            DataUnits[i] = formatValue(bvalue, *commonData).unit;
+            DataFormat[i] = bvalue->getFormat(); // Unit of value
+        }
+
+        // Optical warning by limit violation (unused)
+        if (String(flashLED) == "Limit Violation") {
+            setBlinkingLED(false);
+            setFlashLED(false);
+        }
+
+        if (bvalue == NULL)
+            return PAGE_OK;
+
+        // Draw page
+        //***********************************************************
+
+        // Set display in partial refresh mode
+        displaySetPartialWindow(0, 0, getdisplay().width(), getdisplay().height()); // Set partial update
+        getdisplay().setTextColor(commonData->fgcolor);
+
+        for (int i = 0; i < (HowManyValues / 2); i++) {
+            if (i < (HowManyValues / 2) - 1) { // Don't draw horizontal line after last line of values -> standard design
+                // Horizontal line 3 pix
+                getdisplay().fillRect(0, SixValues_y1 + (i + 1) * SixValues_DeltaY, 400, 3, commonData->fgcolor);
+            }
+            for (int j = 0; j < 2; j++) {
+                int ValueIndex = i * 2 + j;
+                int x0 = SixValues_x1 + j * SixValues_DeltaX;
+                int y0 = SixValues_y1 + i * SixValues_DeltaY;
+                LOG_DEBUG(GwLog::LOG, "Drawing at PageSixValue: %d %s %f %s", ValueIndex, DataName[ValueIndex], DataValue[ValueIndex], DataFormat[ValueIndex]);
+
+                // Show name
+                getdisplay().setFont(&Ubuntu_Bold12pt8b);
+                getdisplay().setCursor(x0, y0 + 25);
+                getdisplay().print(DataName[ValueIndex]); // Page name
+
+                // Show unit
+                getdisplay().setFont(&Ubuntu_Bold8pt8b);
+                if (holdvalues == false) {
+                    drawTextRalign(x0 + 187, y0 + 19, DataUnits[ValueIndex]); // Unit
+                } else {
+                    drawTextRalign(x0 + 187, y0 + 19, OldDataUnits[ValueIndex]);
                 }
-                for (int j = 0; j < 2; j++){
-                    int ValueIndex = i * 2 + j;
-                    int x0 = SixValues_x1 + j * SixValues_DeltaX;
-                    int y0 = SixValues_y1 + i * SixValues_DeltaY;
-                    LOG_DEBUG(GwLog::LOG,"Drawing at PageSixValue: %d %s %f %s",  ValueIndex,  DataName[ValueIndex], DataValue[ValueIndex], DataFormat[ValueIndex] );
-    
-           // Show name
+
+                // Switch font depending on data type
+                if (DataFormat[ValueIndex] == "formatLatitude" || DataFormat[ValueIndex] == "formatLongitude") {
                     getdisplay().setFont(&Ubuntu_Bold12pt8b);
-                    getdisplay().setCursor(x0, y0+25);
-                    getdisplay().print(DataName[ValueIndex]);                           // Page name
-    
-            // Show unit
-                    getdisplay().setFont(&Ubuntu_Bold8pt8b);
-                    if(holdvalues == false){
-                        drawTextRalign(x0+187, y0+19, DataUnits[ValueIndex]);          // Unit
-                        }
-                    else{
-                        drawTextRalign(x0+187, y0+19, OldDataUnits[ValueIndex]);
-                        }
-    
-            // Switch font depending on data type
-                    if(DataFormat[ValueIndex] == "formatLatitude" || DataFormat[ValueIndex] == "formatLongitude"){
-                        getdisplay().setFont(&Ubuntu_Bold12pt8b);
-                        getdisplay().setCursor(x0+21, y0+60);
-                        }
-                    else if(DataFormat[ValueIndex] == "formatTime" || DataFormat[ValueIndex] == "formatDate"){
-                        getdisplay().setFont(&Ubuntu_Bold16pt8b);
-                        getdisplay().setCursor(x0+23,y0+55);
-                        } 
-            // pressure in hPa          
-                    else if(DataFormat[ValueIndex] == "formatXdr:P:P"){
-                        getdisplay().setFont(&DSEG7Classic_BoldItalic26pt7b);
-                        getdisplay().setCursor(x0+23, y0+79);
-                     }
-            // RPM
-                     else if(DataFormat[ValueIndex] == "formatXdr:T:R"){
-                        getdisplay().setFont(&DSEG7Classic_BoldItalic16pt7b);
-                        getdisplay().setCursor(x0+23, y0+79);
-                     }
-                    else{
-                        getdisplay().setFont(&DSEG7Classic_BoldItalic26pt7b);
-                        if ( DataText[ValueIndex][0] == '-' )
-                            getdisplay().setCursor(x0+23, y0+79);
-                        else
-                            getdisplay().setCursor(x0+65, y0+79);
-                        }
-    
-            // Show bus data
-                    if(holdvalues == false){
-                        getdisplay().print(DataText[ValueIndex]);                                     // Real value as formated string
-                        }
-                    else{
-                        getdisplay().print(OldDataText[ValueIndex]);                                  // Old value as formated string
-                        }
-                    if(DataValid[ValueIndex] == true){
-                        OldDataText[ValueIndex] = DataText[ValueIndex];                                       // Save the old value
-                        OldDataUnits[ValueIndex] = DataUnits[ValueIndex];                                           // Save the old unit
-                        }
+                } else if (DataFormat[ValueIndex] == "formatTime" || DataFormat[ValueIndex] == "formatDate") {
+                    getdisplay().setFont(&Ubuntu_Bold16pt8b);
                 }
-                   // Vertical line 3 pix
-            getdisplay().fillRect(SixValues_x1+SixValues_DeltaX-8, SixValues_y1+i*SixValues_DeltaY, 3, SixValues_DeltaY, commonData->fgcolor);
+                // pressure in hPa
+                else if (DataFormat[ValueIndex] == "formatXdr:P:P") {
+                    getdisplay().setFont(&DSEG7Classic_BoldItalic26pt7b);
+                }
+                // RPM
+                else if (DataFormat[ValueIndex] == "formatXdr:T:R") {
+                    getdisplay().setFont(&DSEG7Classic_BoldItalic16pt7b);
+                }
+                else {
+                    getdisplay().setFont(&DSEG7Classic_BoldItalic26pt7b);
+                }
+
+                // Show bus data
+                if (holdvalues == false) {
+                    drawTextRalign(x0 + 187, y0 + 79, DataText[ValueIndex], true); // Real value as formatted string
+                } else {
+                    drawTextRalign(x0 + 187, y0 + 79, OldDataText[ValueIndex], true); // Old value as formatted string
+                }
+                if (DataValid[ValueIndex] == true) {
+                    OldDataText[ValueIndex] = DataText[ValueIndex]; // Save the old value
+                    OldDataUnits[ValueIndex] = DataUnits[ValueIndex]; // Save the old unit
+                }
             }
-    
-            return PAGE_UPDATE;
-        };
-    
+            // Vertical line 3 pix
+            getdisplay().fillRect(SixValues_x1 + SixValues_DeltaX - 8, SixValues_y1 + i * SixValues_DeltaY, 3, SixValues_DeltaY, commonData->fgcolor);
+        }
+
+        return PAGE_UPDATE;
     };
-static Page *createPage(CommonData &common){
+};
+static Page* createPage(CommonData& common)
+{
     return new PageSixValues(common);
-}/**
- * with the code below we make this page known to the PageTask
- * we give it a type (name) that can be selected in the config
- * we define which function is to be called
- * and we provide the number of user parameters we expect
- * this will be number of BoatValue pointers in pageData.values
- */
+} /**
+   * with the code below we make this page known to the PageTask
+   * we give it a type (name) that can be selected in the config
+   * we define which function is to be called
+   * and we provide the number of user parameters we expect
+   * this will be number of BoatValue pointers in pageData.values
+   */
 PageDescription registerPageSixValues(
-    "SixValues",    // Page name
-    createPage,     // Action
-    6,              // Number of bus values depends on selection in Web configuration
-    true            // Show display header on/off
+    "SixValues", // Page name
+    createPage, // Action
+    6, // Number of bus values depends on selection in Web configuration
+    true // Show display header on/off
 );
 
 #endif

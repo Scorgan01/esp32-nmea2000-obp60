@@ -572,16 +572,32 @@ void drawButtonCenter(int16_t cx, int16_t cy, int8_t sx, int8_t sy, String text,
 }
 
 // Draw right aligned text
-void drawTextRalign(int16_t x, int16_t y, String text) {
-    int16_t x1, y1;
-    uint16_t w, h;
+//   int16_t x                - upper right x position for text to start printing
+//   int16_t y                - upper right y position for text to start printing
+//   const String& text       - text to be printed
+//   bool dsegAdjust = false  - optional, for adjustment of DSEG italic font
+void drawTextRalign(int16_t x, int16_t y,  const String& text, bool dsegAdjust)
+{
+    int16_t x1 = 0, y1 = 0;
+    uint16_t w = 0, h = 0;
+    String str = text;
+
+    // make sure that we always have a char with max size at last position for boundary test
+    // to avoid text wobbling of DSEG italic font
+    if (dsegAdjust && str.length() > 0 && isDigit(str[str.length() - 1])) {
+        str.setCharAt(str.length() - 1, '8'); 
+    }
+
 #ifdef TFT_DISPLAY
-    w = getdisplay().textWidth(text);
+    w = getdisplay().textWidth(str);
     h = getdisplay().fontHeight();
 #else
-    getdisplay().getTextBounds(text, 0, 150, &x1, &y1, &w, &h);
+    getdisplay().getTextBounds(str, 0, y, &x1, &y1, &w, &h);
 #endif
-    getdisplay().setCursor(x - w - 1, y); // '-1' required since some strings wrap around w/o it
+
+    int16_t cursorX = x - x1 - w;
+    getdisplay().setCursor(cursorX, y);
+//    getdisplay().setCursor(x - w - 1, y); // '-1' required since some strings wrap around w/o it
     getdisplay().print(text);
 }
 

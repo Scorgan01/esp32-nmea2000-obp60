@@ -734,7 +734,7 @@ String xdrDelete(String input);                 // Delete xdr prefix from string
 
 void drawTextCenter(int16_t cx, int16_t cy, String text);
 void drawButtonCenter(int16_t cx, int16_t cy, int8_t sx, int8_t sy, String text, uint16_t fg, uint16_t bg, bool inverted);
-void drawTextRalign(int16_t x, int16_t y, String text);
+void drawTextRalign(int16_t x, int16_t y, const String& text, bool dsegAdjust = false);
 void drawTextBoxed(Rect box, String text, uint16_t fg, uint16_t bg, bool inverted, bool border);
 
 void displayTrendHigh(int16_t x, int16_t y, uint16_t size, uint16_t color);

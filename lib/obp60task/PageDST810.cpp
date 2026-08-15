@@ -39,7 +39,21 @@ private:
     String unit4old = "";
 
     // send NMEA2000 message 126208 for reset of trip log data on Airmar DST 810 triducer
-    void resetTripLog(PageData &pageData, uint8_t n2kTarget) {
+    void resetDSTTripLog(PageData &pageData, uint8_t n2kTarget) {
+
+        /* Maretron DST110 documentation https://www.maretron.com/support/manuals/DST110UM_1.0.html
+
+        PGN 126208 – NMEA Command Group Function – Distance Log Reset
+        This command will reset the “Distance Since Last Reset” field of the Distance Log PGN (128275).
+
+        Field  1:  Complex Command Group Function Code (8 bits) – set this field’s value to 0x01, which denotes a command PGN
+                2:  Commanded PGN (24 bits) – set this field’s value to 128275, which denotes the Distance Log PGN
+                3:  Priority Setting (4 bits) – set this field’s value to 0x8, which indicates to leave priority settings unchanged
+                4:  Reserved (4 bits) – set this field’s value to 0xF, which is the value for a reserved field of this size
+                5:  Number of Pairs of Commanded Parameters to Follow (8 bits) – set this field’s value to 0x1, indicating that one parameter will follow
+                6:  Number of First Commanded Parameter (8 bits) – set this field’s value to 0x4, which indicates the Distance Since Last Reset field
+                7:  Distance Since Last Reset (16 bits) – set this field’s value 0 to reset the Distance Since Last Reset counter to zero. */
+
         tN2kMsg n2kMsg;
 
         n2kMsg.Clear();                          // initialise message / clear
@@ -48,15 +62,15 @@ private:
         n2kMsg.Destination = n2kTarget;          // should specify real destination, but cannot query it out of user task
 
         // Payload for PGN 126208 (Command)
-        n2kMsg.AddByte(0x01);                    // Byte 0: function code = command (1)
-        n2kMsg.Add3ByteInt(128275);              // Bytes 1–3: target PGN 128275 (distance log)
-        n2kMsg.AddByte(0xFF);                    // Byte 4: priority - don't change
-        n2kMsg.AddByte(0x01);                    // Byte 5: no. of parameter = 1
-        n2kMsg.AddByte(0x04);                    // Byte 6: parameter index = 4 (distance since last reset)
-        n2kMsg.Add4ByteUInt(0);                  // Bytes 7-10: value = 0 (reset)
+        n2kMsg.AddByte(0x01);                    // Byte 1: function code = command (1)
+        n2kMsg.Add3ByteInt(128275);              // Bytes 2–4: target PGN 128275 (distance log)
+        n2kMsg.AddByte(0x8F);                    // Byte 5: priority = 8, reserved = F
+        n2kMsg.AddByte(0x01);                    // Byte 6: no. of parameter = 1
+        n2kMsg.AddByte(0x04);                    // Byte 7: parameter index = 4 (distance since last reset)
+        n2kMsg.Add2ByteUInt(0);                  // Bytes 8-9: value = 0 (reset)
 
         pageData.api->sendN2kMessage(n2kMsg, true);
-        LOG_DEBUG(GwLog::DEBUG, "N2k PGN 126208 to DST810 sent. Target address: %u", n2kTarget);
+        LOG_DEBUG(GwLog::DEBUG, "N2k PGN 126208 sent to DST810. Target address: %u", n2kTarget);
     }
 
 public:
@@ -179,7 +193,7 @@ virtual int handleKey(int key){
         if (bvalue1 == NULL) return PAGE_OK;
 
         if (rstTripLog) { // user pressed reset buttion for trip log data
-            resetTripLog(pageData, dst810Address);
+            resetDSTTripLog(pageData, dst810Address);
             buzzer(TONE3, 150);
             LOG_DEBUG(GwLog::LOG,"PageDST810: Trip log data reset performed. N2k target address: %u", dst810Address);
 

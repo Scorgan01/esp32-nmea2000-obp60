@@ -56,6 +56,8 @@ extern sdmmc_card_t *sdcard;
 #endif
 
 // Fonts declarations for display (#includes see OBP60Extensions.cpp)
+extern const GFXfont DSEG7Classic_BoldItalic10pt7b;
+extern const GFXfont DSEG7Classic_BoldItalic12pt7b;
 extern const GFXfont DSEG7Classic_BoldItalic16pt7b;
 extern const GFXfont DSEG7Classic_BoldItalic20pt7b;
 extern const GFXfont DSEG7Classic_BoldItalic26pt7b;
@@ -734,7 +736,8 @@ String xdrDelete(String input);                 // Delete xdr prefix from string
 
 void drawTextCenter(int16_t cx, int16_t cy, String text);
 void drawButtonCenter(int16_t cx, int16_t cy, int8_t sx, int8_t sy, String text, uint16_t fg, uint16_t bg, bool inverted);
-void drawTextRalign(int16_t x, int16_t y, const String& text, bool dsegAdjust = false);
+int16_t drawTextRalign(int16_t x, int16_t y, const String& text, bool dsegAdjust = false);
+void printDecimalRightAlign(int16_t x, int16_t y, const String& text, const GFXfont* mainFont, const GFXfont* decimalFont);
 void drawTextBoxed(Rect box, String text, uint16_t fg, uint16_t bg, bool inverted, bool border);
 
 void displayTrendHigh(int16_t x, int16_t y, uint16_t size, uint16_t color);

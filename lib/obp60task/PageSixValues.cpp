@@ -123,9 +123,11 @@ public:
 
                 // Show bus data
                 if (holdvalues == false) {
-                    drawTextRalign(x0 + 187, y0 + 79, DataText[ValueIndex], true); // Real value as formatted string
+//                    drawTextRalign(x0 + 187, y0 + 79, DataText[ValueIndex], true); // Real value as formatted string
+                    printDecimalRightAlign(x0 + 187, y0 + 79, DataText[ValueIndex], &DSEG7Classic_BoldItalic26pt7b, &DSEG7Classic_BoldItalic20pt7b); // Real value as formatted string
                 } else {
-                    drawTextRalign(x0 + 187, y0 + 79, OldDataText[ValueIndex], true); // Old value as formatted string
+//                    drawTextRalign(x0 + 187, y0 + 79, OldDataText[ValueIndex], true); // Old value as formatted string
+                    printDecimalRightAlign(x0 + 187, y0 + 79, OldDataText[ValueIndex], &DSEG7Classic_BoldItalic26pt7b, &DSEG7Classic_BoldItalic20pt7b); // Real value as formatted string
                 }
                 if (DataValid[ValueIndex] == true) {
                     OldDataText[ValueIndex] = DataText[ValueIndex]; // Save the old value

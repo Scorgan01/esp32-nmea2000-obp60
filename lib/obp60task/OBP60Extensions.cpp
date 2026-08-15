@@ -576,7 +576,7 @@ void drawButtonCenter(int16_t cx, int16_t cy, int8_t sx, int8_t sy, String text,
 //   int16_t y                - upper right y position for text to start printing
 //   const String& text       - text to be printed
 //   bool dsegAdjust = false  - optional, for adjustment of DSEG italic font
-void drawTextRalign(int16_t x, int16_t y,  const String& text, bool dsegAdjust)
+int16_t drawTextRalign(int16_t x, int16_t y,  const String& text, bool dsegAdjust)
 {
     int16_t x1 = 0, y1 = 0;
     uint16_t w = 0, h = 0;
@@ -599,6 +599,34 @@ void drawTextRalign(int16_t x, int16_t y,  const String& text, bool dsegAdjust)
     getdisplay().setCursor(cursorX, y);
 //    getdisplay().setCursor(x - w - 1, y); // '-1' required since some strings wrap around w/o it
     getdisplay().print(text);
+
+    return cursorX;  // actual visible left edge
+}
+
+// Draw right aligned numbers with smaller decimals
+//   int16_t x                    - upper right x position for text to start printing
+//   int16_t y                    - upper right y position for text to start printing
+//   const String& text           - number as text to be printed
+//   const GFXfont* mainFont      - font type and size for integer part of number
+//   const GFXfont* decimalFont   - font type and size for decimals part of number
+void printDecimalRightAlign(int16_t x, int16_t y, const String& text, const GFXfont* mainFont, const GFXfont* decimalFont) {
+    String integerPart, decimalPart;
+    const int16_t dot = text.indexOf('.');
+
+    if (dot != -1) { 
+        integerPart = text.substring(0, dot + 1);    // includes '.'
+        decimalPart = text.substring(dot + 1);
+    } else {
+        integerPart = text;
+    }
+
+    // Draw decimal part first.
+    display.setFont(decimalFont);
+    int16_t decimalLeft = drawTextRalign(x, y, decimalPart);
+
+    // Draw integer part immediately to its left.
+    display.setFont(mainFont);
+    drawTextRalign(decimalLeft, y, integerPart);
 }
 
 // Draw text inside box, normal or inverted

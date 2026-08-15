@@ -100,17 +100,19 @@ FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool 
 	//All values are displayed using a DSEG7* font. In this font, ' ' is a very short space, and '.' takes up no space at all. 
 	//For a space that is as long as a number, '!' is used. For details see  https://www.keshikan.net/fonts-e.html
 	//
-        fmt_dec_1 = "!%1.1f";  //insert a blank digit and then display a two-digit number
-        fmt_dec_10 = "!%2.0f"; //insert a blank digit and then display a two-digit number
-        fmt_dec_100 = "%3.0f"; //dispay a three digit number
-	limit_dec_10=9.95; // use fmt_dec_1 below this number to avoid formatting 9.96 as 10.0 instead of 10
-	limit_dec_100=99.5; 
+        fmt_dec_1 = "!%1.1f";  // blank digit + 2 digit number, incl. 1 decimal
+//        fmt_dec_10 = "!%2.0f"; //insert a blank digit and then display a two-digit number
+        fmt_dec_10 = "%3.1f"; // 3 digit number, incl. 1 decimal
+        fmt_dec_100 = "%3.0f"; // 3 digit number, no decimal
+        limit_dec_10=9.95; // use fmt_dec_1 below this number to avoid formatting 9.96 as 10.0 instead of 10
+        limit_dec_100=99.5; 
     } else {
         fmt_dec_1 = "%3.2f";
-        fmt_dec_10 = "%3.1f";
+//        fmt_dec_10 = "%3.1f";
+        fmt_dec_10 = "%3.2f"; // test for small decimals
         fmt_dec_100 = "%3.0f";
-	limit_dec_10=9.995;
-	limit_dec_100=99.95;
+        limit_dec_10=9.995;
+        limit_dec_100=99.95;
     }
 
 //    LOG_DEBUG(GwLog::DEBUG,"formatValue init: getFormat: %s date->value: %f time->value: %f", value->getFormat(), commondata.date->value, commondata.time->value);

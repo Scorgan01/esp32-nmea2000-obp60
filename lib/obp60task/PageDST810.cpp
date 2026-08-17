@@ -23,7 +23,7 @@ private:
     String flashLED;
     String backlightMode;
     String lengthformat;
-    uint8_t dst810Address = 255; // N2k device address of DST810 triducer (255 = broadcast)
+    uint8_t dst810Address = 36; // N2k device address of DST810 triducer (255 = broadcast)
 
     LogMode logMode = TRIP; // Mode for log data
     bool rstTripLog = false; // Indicator for reset command of trip log data
@@ -67,10 +67,11 @@ private:
         n2kMsg.AddByte(0x8F);                    // Byte 5: priority = 8, reserved = F
         n2kMsg.AddByte(0x01);                    // Byte 6: no. of parameter = 1
         n2kMsg.AddByte(0x04);                    // Byte 7: parameter index = 4 (distance since last reset)
-        n2kMsg.Add2ByteUInt(0);                  // Bytes 8-9: value = 0 (reset)
+        n2kMsg.Add4ByteUInt(0);                  // Bytes 8-11: value = 0 (reset)
 
         pageData.api->sendN2kMessage(n2kMsg, true);
-        LOG_DEBUG(GwLog::DEBUG, "N2k PGN 126208 sent to DST810. Target address: %u", n2kTarget);
+        LOG_DEBUG(GwLog::DEBUG, "N2k PGN 126208 sent to DST810. Target address: %u (destination in PGN: %u)", n2kTarget, (unsigned)n2kMsg.Destination);
+        LOG_DEBUG(GwLog::DEBUG, "N2k PGN 126208 sent. dst810Address: %u", dst810Address);
     }
 
 public:
@@ -100,6 +101,7 @@ public:
         commonData->keydata[0].label = "MODE";
 #if defined BOARD_OBP60S3
         constexpr int RST_KEY = 4;
+//        constexpr int RST_KEY = 1;
         if (logMode == TRIP) { // show "RESET" key only if trip log data is selected
             commonData->keydata[RST_KEY].label = "RESET";
         } else {
@@ -108,7 +110,7 @@ public:
 #endif
     }
 
-virtual int handleKey(int key){
+    virtual int handleKey(int key){
 
         if (key == 1) {
             switch (logMode) {
@@ -123,14 +125,15 @@ virtual int handleKey(int key){
             return 0; // Commit the key
         }
 
-#if defined BOARD_OBP60S3
+    #if defined BOARD_OBP60S3
         // OBP40 cannot send N2k messages
         // Reset trip log if <reset> button has been pressed
         if (key == 5  && logMode == TRIP) {
+//        if (key == 2  && logMode == TRIP) {
             rstTripLog = true;
             return 0; // Commit the key
         }
-#endif
+    #endif
 
         // Code for keylock
         if(key == 11){

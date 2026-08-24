@@ -1355,10 +1355,10 @@
     },
     {
         "name": "valueprecision",
-        "label": "Display value precision",
+        "label": "Value precision",
         "type": "list",
         "default": "2",
-        "description": "Maximum number of decimal places to display [1|2]",
+        "description": "Number of decimal precision on display: [1|2] decimals",
         "list": [
             "1",
             "2"
@@ -1366,6 +1366,17 @@
         "category": "OBP40 Display",
         "capabilities": {
             "obp40":"true"
+        }
+    },
+    {
+        "name": "smallDecimals",
+        "label": "Display small decimals",
+        "type": "boolean",
+        "default": "true",
+        "description": "Show decimals of values in smaller size [on|off]",
+        "category": "OBP40 Display",
+        "capabilities": {
+            "obp40": "true"
         }
     },
     {

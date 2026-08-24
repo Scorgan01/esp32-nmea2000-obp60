@@ -11,6 +11,8 @@
 #include "imglib.h"
 
 // Character sets
+#include "fonts/DSEG7Classic-BoldItalic10pt7b.h"
+#include "fonts/DSEG7Classic-BoldItalic12pt7b.h"
 #include "fonts/DSEG7Classic-BoldItalic16pt7b.h"
 #include "fonts/DSEG7Classic-BoldItalic20pt7b.h"
 #include "fonts/DSEG7Classic-BoldItalic26pt7b.h"
@@ -539,17 +541,21 @@ std::vector<String> wordwrap(String &line, uint16_t maxwidth) {
 }
 
 // Draw centered text
-void drawTextCenter(int16_t cx, int16_t cy, String text) {
+// returns left <x> edge of printed string
+int16_t drawTextCenter(int16_t cx, int16_t cy, String text) {
     int16_t x1, y1;
     uint16_t w, h;
+
     displayGetTextBounds(text, 0, 0, &x1, &y1, &w, &h);
     int16_t cursorX = cx - (x1 + static_cast<int16_t>(w / 2));
     int16_t cursorY = cy - (y1 + static_cast<int16_t>(h / 2));
     getdisplay().setCursor(cursorX, cursorY);
     getdisplay().print(text);
+
+    return cursorX;
 }
 
-// Draw centered botton with centered text
+// Draw centered button with centered text
 void drawButtonCenter(int16_t cx, int16_t cy, int8_t sx, int8_t sy, String text, uint16_t fg, uint16_t bg, bool inverted) {
     int16_t x1, y1;
     uint16_t w, h;
@@ -576,57 +582,129 @@ void drawButtonCenter(int16_t cx, int16_t cy, int8_t sx, int8_t sy, String text,
 //   int16_t y                - upper right y position for text to start printing
 //   const String& text       - text to be printed
 //   bool dsegAdjust = false  - optional, for adjustment of DSEG italic font
-int16_t drawTextRalign(int16_t x, int16_t y,  const String& text, bool dsegAdjust)
-{
+// returns left <x> edge of printed string
+int16_t drawTextRalign(int16_t x, int16_t y,  const String& text, bool dsegAdjust) {
     int16_t x1 = 0, y1 = 0;
     uint16_t w = 0, h = 0;
     String str = text;
 
     // make sure that we always have a char with max size at last position for boundary test
-    // to avoid text wobbling of DSEG italic font
+    // for monotype italic DSEG7 font to avoid text wobbling
     if (dsegAdjust && str.length() > 0 && isDigit(str[str.length() - 1])) {
         str.setCharAt(str.length() - 1, '8'); 
     }
 
-#ifdef TFT_DISPLAY
-    w = getdisplay().textWidth(str);
-    h = getdisplay().fontHeight();
-#else
-    getdisplay().getTextBounds(str, 0, y, &x1, &y1, &w, &h);
-#endif
-
+    displayGetTextBounds(str, 0, y, &x1, &y1, &w, &h);
     int16_t cursorX = x - x1 - w;
     getdisplay().setCursor(cursorX, y);
-//    getdisplay().setCursor(x - w - 1, y); // '-1' required since some strings wrap around w/o it
     getdisplay().print(text);
 
-    return cursorX;  // actual visible left edge
+    return cursorX;  // currently visible left edge
 }
 
-// Draw right aligned numbers with smaller decimals
-//   int16_t x                    - upper right x position for text to start printing
-//   int16_t y                    - upper right y position for text to start printing
-//   const String& text           - number as text to be printed
-//   const GFXfont* mainFont      - font type and size for integer part of number
-//   const GFXfont* decimalFont   - font type and size for decimals part of number
-void printDecimalRightAlign(int16_t x, int16_t y, const String& text, const GFXfont* mainFont, const GFXfont* decimalFont) {
-    String integerPart, decimalPart;
-    const int16_t dot = text.indexOf('.');
+// Implementation of <printBoatValue()>; does the actual printing
+static void printBoatValueImpl(const String &sBoatValue, const int16_t x, const int16_t y,
+                                const int8_t align, const int8_t fontSize, bool smallDecs) {
+    const GFXfont *mainFont = NULL;
+    const GFXfont *decimalFont = NULL;
+    constexpr bool dsegAdjust = true;
 
-    if (dot != -1) { 
-        integerPart = text.substring(0, dot + 1);    // includes '.'
-        decimalPart = text.substring(dot + 1);
+    String integerPart = sBoatValue;
+    String decimalPart = "";
+    int16_t dot = 0;
+    int16_t decimalLeftX = x;  // <x> printing position of decimals part of boat data value
+    int16_t x1 = 0, y1 = 0;
+    uint16_t w = 0, h = 0;
+
+    if (sBoatValue.indexOf('"') != -1) {
+        // boat value string includes a <"> which indicates LAT/LON value -> requires another font than DSEG7
+        if (fontSize <= 12) {
+            mainFont = &Ubuntu_Bold12pt8b;
+        } else if (fontSize <= 16) {
+            mainFont = &Ubuntu_Bold16pt8b;
+        } else if (fontSize <= 20) {
+            mainFont = &Ubuntu_Bold20pt8b;
+        } else {
+            mainFont = &Ubuntu_Bold32pt8b;
+        }
+        smallDecs = false; // disable small decimals for LAT/LON in any case
+    }
+    else if (fontSize <= 12) {
+        mainFont = &DSEG7Classic_BoldItalic12pt7b;
+        decimalFont = &DSEG7Classic_BoldItalic10pt7b;
+    } else if (fontSize <= 16) {
+        mainFont = &DSEG7Classic_BoldItalic16pt7b;
+        decimalFont = &DSEG7Classic_BoldItalic12pt7b;
+    } else if (fontSize <= 20) {
+        mainFont = &DSEG7Classic_BoldItalic20pt7b;
+        decimalFont = &DSEG7Classic_BoldItalic16pt7b;
+    } else if (fontSize <= 26) {
+        mainFont = &DSEG7Classic_BoldItalic26pt7b;
+        decimalFont = &DSEG7Classic_BoldItalic20pt7b;
+    } else if (fontSize <= 30) {
+        mainFont = &DSEG7Classic_BoldItalic30pt7b;
+        decimalFont = &DSEG7Classic_BoldItalic26pt7b;
+    } else if (fontSize <= 42) {
+        mainFont = &DSEG7Classic_BoldItalic42pt7b;
+        decimalFont = &DSEG7Classic_BoldItalic30pt7b;
     } else {
-        integerPart = text;
+        mainFont = &DSEG7Classic_BoldItalic60pt7b;
+        decimalFont = &DSEG7Classic_BoldItalic42pt7b;
     }
 
-    // Draw decimal part first.
-    display.setFont(decimalFont);
-    int16_t decimalLeft = drawTextRalign(x, y, decimalPart);
+    if (smallDecs) {
+        dot = sBoatValue.indexOf('.');
+        if (dot != -1) {
+            integerPart = sBoatValue.substring(0, dot + 1);    // includes '.'
+            decimalPart = sBoatValue.substring(dot + 1);
+        }
+        // Draw decimal part of boat data value
+        display.setFont(decimalFont);
+        if (align == 2) {
+            decimalLeftX = drawTextRalign(x, y, decimalPart, dsegAdjust);
+        } else if (align == 1) {
+            decimalLeftX = drawTextCenter(x, y, decimalPart);
+            displayGetTextBounds(decimalPart, 0, 0, &x1, &y1, &w, &h);
+            decimalLeftX -= w / 2 - 1;
+        } else {
+            displayGetTextBounds(decimalPart, 0, 0, &x1, &y1, &w, &h);
+            getdisplay().setCursor(x + w + 1, y);
+            getdisplay().print(decimalPart);
+            decimalLeftX = x;
+        }
+    }
 
-    // Draw integer part immediately to its left.
+    // Draw integer or full part of boat data value
     display.setFont(mainFont);
-    drawTextRalign(decimalLeft, y, integerPart);
+    if (align == 2) {
+        drawTextRalign(decimalLeftX, y, integerPart, dsegAdjust);
+    } else {
+        getdisplay().setCursor(decimalLeftX, y);
+        getdisplay().print(integerPart);
+    }
+}
+
+// Print boat data value at x,y position with selectable alignment
+// Version with <GwApi::BoatValue *bValue>; formats the boat data value and then prints the formatted value
+//   GwApi::BoatValue *bValue       - boat value to print
+//   CommonData &commondata         - <commondata> required for <formatValue()> function
+//   int16_t x                      - upper left/right x position for text to start printing
+//   int16_t y                      - upper left/right y position for text to start printing
+//   int8_t align                   - alignment [0,1,2] of the value: 0 = left, 1 = center, 2 = right
+//   int8_t fontSize                - font size for integer part of number or for full value, if <smallDecs> is <false>/not set
+//   bool smallDecs                 - flag specifies if decimals will be printed in smaller fontsize [default = false]
+void printBoatValue(GwApi::BoatValue *bValue, CommonData &commondata, const int16_t x, const int16_t y,
+                     const int8_t align, const int8_t fontSize, const bool smallDecs)
+{
+    String sBoatValue = formatValue(bValue, commondata).svalue;
+    printBoatValueImpl(sBoatValue, x, y, align, fontSize, smallDecs);
+}
+
+// Print boat data value at x,y position with selectable alignment; oerload with ready-to-print <String>; omits boat data value formatting
+void printBoatValue(const String &sBoatValue, const int16_t x, const int16_t y,
+                     const int8_t align, const int8_t fontSize, const bool smallDecs)
+{
+    printBoatValueImpl(sBoatValue, x, y, align, fontSize, smallDecs);
 }
 
 // Draw text inside box, normal or inverted

@@ -697,11 +697,17 @@ inline void displaySetFullWindow() {
 // replacement for getTextBounds that works with both EPD and TFT
 inline void displayGetTextBounds(const String &txt, int16_t x, int16_t y,
                                  int16_t *x0, int16_t *y0,
-                                 uint16_t *w, uint16_t *h) {
+                                 uint16_t *w, uint16_t *h, const bool dsegAdjust = false) {
+String str = txt;
+// make sure that we always have a char with max size at last position for boundary test
+// for monotype italic DSEG7 font to avoid text wobbling
+if (dsegAdjust && str.length() > 0 && isDigit(str[str.length() - 1])) {
+    str.setCharAt(str.length() - 1, '8'); 
+}
 #ifdef TFT_DISPLAY
-    getdisplay().getTextBounds(txt, x, y, x0, y0, w, h);
+    getdisplay().getTextBounds(str, x, y, x0, y0, w, h);
 #else
-    getdisplay().getTextBounds(txt, x, y, x0, y0, w, h);
+    getdisplay().getTextBounds(str, x, y, x0, y0, w, h);
 #endif
 }
 
@@ -734,7 +740,7 @@ void setBuzzerPower(uint power);                // Set buzzer power
 
 String xdrDelete(String input);                 // Delete xdr prefix from string
 
-int16_t drawTextCenter(int16_t cx, int16_t cy, String text);
+int16_t drawTextCenter(int16_t cx, int16_t cy, String text, bool dsegAdjust = false);
 void drawButtonCenter(int16_t cx, int16_t cy, int8_t sx, int8_t sy, String text, uint16_t fg, uint16_t bg, bool inverted);
 int16_t drawTextRalign(int16_t x, int16_t y, const String& text, bool dsegAdjust = false);
 void drawTextBoxed(Rect box, String text, uint16_t fg, uint16_t bg, bool inverted, bool border);

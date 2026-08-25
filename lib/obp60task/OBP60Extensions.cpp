@@ -541,12 +541,12 @@ std::vector<String> wordwrap(String &line, uint16_t maxwidth) {
 }
 
 // Draw centered text
+//   bool dsegAdjust = false  - optional, for adjustment of DSEG italic font
 // returns left <x> edge of printed string
-int16_t drawTextCenter(int16_t cx, int16_t cy, String text) {
+int16_t drawTextCenter(int16_t cx, int16_t cy, String text, bool dsegAdjust) {
     int16_t x1, y1;
     uint16_t w, h;
-
-    displayGetTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+    displayGetTextBounds(text, 0, 0, &x1, &y1, &w, &h, dsegAdjust);
     int16_t cursorX = cx - (x1 + static_cast<int16_t>(w / 2));
     int16_t cursorY = cy - (y1 + static_cast<int16_t>(h / 2));
     getdisplay().setCursor(cursorX, cursorY);
@@ -586,15 +586,8 @@ void drawButtonCenter(int16_t cx, int16_t cy, int8_t sx, int8_t sy, String text,
 int16_t drawTextRalign(int16_t x, int16_t y,  const String& text, bool dsegAdjust) {
     int16_t x1 = 0, y1 = 0;
     uint16_t w = 0, h = 0;
-    String str = text;
 
-    // make sure that we always have a char with max size at last position for boundary test
-    // for monotype italic DSEG7 font to avoid text wobbling
-    if (dsegAdjust && str.length() > 0 && isDigit(str[str.length() - 1])) {
-        str.setCharAt(str.length() - 1, '8'); 
-    }
-
-    displayGetTextBounds(str, 0, y, &x1, &y1, &w, &h);
+    displayGetTextBounds(text, 0, y, &x1, &y1, &w, &h, dsegAdjust);
     int16_t cursorX = x - x1 - w;
     getdisplay().setCursor(cursorX, y);
     getdisplay().print(text);
@@ -605,28 +598,32 @@ int16_t drawTextRalign(int16_t x, int16_t y,  const String& text, bool dsegAdjus
 // Implementation of <printBoatValue()>; does the actual printing
 static void printBoatValueImpl(const String &sBoatValue, const int16_t x, const int16_t y,
                                 const int8_t align, const int8_t fontSize, bool smallDecs) {
-    const GFXfont *mainFont = NULL;
-    const GFXfont *decimalFont = NULL;
+    const GFXfont *mainFont = nullptr;
+    const GFXfont *decimalFont = nullptr;
     constexpr bool dsegAdjust = true;
 
-    String integerPart = sBoatValue;
+    String integerPart = "";
     String decimalPart = "";
     int16_t dot = 0;
-    int16_t decimalLeftX = x;  // <x> printing position of decimals part of boat data value
-    int16_t x1 = 0, y1 = 0;
-    uint16_t w = 0, h = 0;
 
-    if (sBoatValue.indexOf('"') != -1) {
-        // boat value string includes a <"> which indicates LAT/LON value -> requires another font than DSEG7
-        if (fontSize <= 12) {
+    uint16_t intW = 0, decW = 0;
+    int16_t decimalLeftX = 0;
+
+    // -----------------------------------------------------------------
+    // Font selection
+    // -----------------------------------------------------------------
+    if (sBoatValue.indexOf('"') != -1)
+    {
+        // LAT/LON values
+        if (fontSize <= 12)
             mainFont = &Ubuntu_Bold12pt8b;
-        } else if (fontSize <= 16) {
+        else if (fontSize <= 16)
             mainFont = &Ubuntu_Bold16pt8b;
-        } else if (fontSize <= 20) {
+        else if (fontSize <= 20)
             mainFont = &Ubuntu_Bold20pt8b;
-        } else {
+        else
             mainFont = &Ubuntu_Bold32pt8b;
-        }
+
         smallDecs = false; // disable small decimals for LAT/LON in any case
     }
     else if (fontSize <= 12) {
@@ -652,35 +649,75 @@ static void printBoatValueImpl(const String &sBoatValue, const int16_t x, const 
         decimalFont = &DSEG7Classic_BoldItalic42pt7b;
     }
 
-    if (smallDecs) {
-        dot = sBoatValue.indexOf('.');
-        if (dot != -1) {
-            integerPart = sBoatValue.substring(0, dot + 1);    // includes '.'
-            decimalPart = sBoatValue.substring(dot + 1);
-        }
-        // Draw decimal part of boat data value
-        display.setFont(decimalFont);
-        if (align == 2) {
-            decimalLeftX = drawTextRalign(x, y, decimalPart, dsegAdjust);
-        } else if (align == 1) {
-            decimalLeftX = drawTextCenter(x, y, decimalPart);
-            displayGetTextBounds(decimalPart, 0, 0, &x1, &y1, &w, &h);
-            decimalLeftX -= w / 2 - 1;
-        } else {
-            displayGetTextBounds(decimalPart, 0, 0, &x1, &y1, &w, &h);
-            getdisplay().setCursor(x + w + 1, y);
-            getdisplay().print(decimalPart);
-            decimalLeftX = x;
-        }
+    // separate integer and decimal part of the value
+    dot = sBoatValue.indexOf('.');
+    if (dot == -1) { // no decimal point found
+        integerPart = sBoatValue;
+        decimalPart = "";
+        smallDecs = false; // print only integer part
+    } else {
+        integerPart = sBoatValue.substring(0, dot + 1); // keep decimal point
+        decimalPart = sBoatValue.substring(dot + 1);
     }
 
-    // Draw integer or full part of boat data value
+    // -----------------------------------------------------------------
+    // Small decimals mode
+    // -----------------------------------------------------------------
+    if (smallDecs) {
+        // Measure integer part
+        int16_t ix1, iy1;
+        uint16_t iw, ih;
+        display.setFont(mainFont);
+        displayGetTextBounds(integerPart, 0, 0, &ix1, &iy1, &iw, &ih, dsegAdjust);
+        intW = ix1 + iw;
+
+        // Measure decimal part
+        int16_t dx1, dy1;
+        uint16_t dw, dh;
+        display.setFont(decimalFont);
+        displayGetTextBounds(decimalPart, 0, 0, &dx1, &dy1, &dw, &dh, dsegAdjust);
+        decW = dx1 + dw;
+
+        const int16_t totalWidth = intW + decW;
+        int16_t startX;
+        switch (align) {
+            case 0: // LEFT
+                startX = x;
+                break;
+            case 1: // CENTER
+                startX = x - totalWidth / 2;
+                break;
+            case 2: // RIGHT
+            default:
+                startX = x - totalWidth;
+                break;
+        }
+        decimalLeftX = startX + intW;
+
+        // Draw integer part
+        display.setFont(mainFont);
+        getdisplay().setCursor(startX, y);
+        getdisplay().print(integerPart);
+
+        // Draw decimal part immediately after integer part
+        display.setFont(decimalFont);
+        getdisplay().setCursor(decimalLeftX, y);
+        getdisplay().print(decimalPart);
+
+        return;
+    }
+
+    // -----------------------------------------------------------------
+    // Normal rendering (no small decimals)
+    // -----------------------------------------------------------------
     display.setFont(mainFont);
     if (align == 2) {
-        drawTextRalign(decimalLeftX, y, integerPart, dsegAdjust);
+        drawTextRalign(x, y, sBoatValue, dsegAdjust);
+    } else if (align == 1) {
+        drawTextCenter(x, y, sBoatValue, dsegAdjust);
     } else {
-        getdisplay().setCursor(decimalLeftX, y);
-        getdisplay().print(integerPart);
+        getdisplay().setCursor(x, y);
+        getdisplay().print(sBoatValue);
     }
 }
 

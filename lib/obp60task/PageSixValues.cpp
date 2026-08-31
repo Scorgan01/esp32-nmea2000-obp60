@@ -11,11 +11,11 @@ private:
     bool holdValues;
     String flashLED;
     String backlightMode;
+    bool smallDecimals;
 
     static constexpr int8_t LEFT = 0;
     static constexpr int8_t CENTER = 1;
     static constexpr int8_t RIGHT = 2;
-    bool smallDecimals;
 
     static constexpr int SixValues_x1 = 5;
     static constexpr int SixValues_DeltaX = 200;
@@ -74,12 +74,13 @@ public:
             DataFormat[i] = bvalue->getFormat(); // Unit of value
         }
 
+#ifdef BOARD_OBP60S3
         // Optical warning by limit violation (unused)
         if (String(flashLED) == "Limit Violation") {
             setBlinkingLED(false);
             setFlashLED(false);
         }
-
+#endif
         if (bvalue == NULL)
             return PAGE_OK;
 
@@ -88,6 +89,7 @@ public:
 
         // Set display in partial refresh mode
         displaySetPartialWindow(0, 0, getdisplay().width(), getdisplay().height()); // Set partial update
+        getdisplay().setTextWrap(false);
         getdisplay().setTextColor(commonData->fgcolor);
 
         for (int i = 0; i < (HowManyValues / 2); i++) {
@@ -100,7 +102,8 @@ public:
                 int ValueIndex = i * 2 + j;
                 int x0 = SixValues_x1 + j * SixValues_DeltaX;
                 int y0 = SixValues_y1 + i * SixValues_DeltaY;
-                LOG_DEBUG(GwLog::DEBUG, "Drawing at PageSixValue: %d %s %f %s %s", ValueIndex, DataName[ValueIndex], DataValue[ValueIndex], DataUnit[ValueIndex], DataFormat[ValueIndex]);
+                //LOG_DEBUG(GwLog::DEBUG, "Drawing at PageSixValue: %d %s %f %s %s", ValueIndex, DataName[ValueIndex],
+                //    DataValue[ValueIndex], DataUnit[ValueIndex], DataFormat[ValueIndex]);
 
                 // Show name
                 getdisplay().setFont(&Ubuntu_Bold12pt8b);

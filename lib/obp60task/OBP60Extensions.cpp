@@ -660,64 +660,49 @@ static void printBoatValueImpl(const String &sBoatValue, const int16_t x, const 
         decimalPart = sBoatValue.substring(dot + 1);
     }
 
-    // -----------------------------------------------------------------
-    // Small decimals mode
-    // -----------------------------------------------------------------
-    if (smallDecs) {
-        // Measure integer part
-        int16_t ix1, iy1;
-        uint16_t iw, ih;
-        display.setFont(mainFont);
-        displayGetTextBounds(integerPart, 0, 0, &ix1, &iy1, &iw, &ih, dsegAdjust);
-        intW = ix1 + iw;
+    // Measure integer part
+    int16_t ix1, iy1;
+    uint16_t iw, ih;
+    display.setFont(mainFont);
+    displayGetTextBounds(integerPart, 0, 0, &ix1, &iy1, &iw, &ih, dsegAdjust);
+    intW = ix1 + iw;
 
-        // Measure decimal part
+    // Measure decimal part only if one actually exists
+    decW = 0;
+    if (dot != -1 && decimalPart.length() > 0) {
         int16_t dx1, dy1;
         uint16_t dw, dh;
-        display.setFont(decimalFont);
+        display.setFont(smallDecs ? decimalFont : mainFont);
         displayGetTextBounds(decimalPart, 0, 0, &dx1, &dy1, &dw, &dh, dsegAdjust);
         decW = dx1 + dw;
-
-        const int16_t totalWidth = intW + decW;
-        int16_t startX;
-        switch (align) {
-            case 0: // LEFT
-                startX = x;
-                break;
-            case 1: // CENTER
-                startX = x - totalWidth / 2;
-                break;
-            case 2: // RIGHT
-            default:
-                startX = x - totalWidth;
-                break;
-        }
-        decimalLeftX = startX + intW;
-
-        // Draw integer part
-        display.setFont(mainFont);
-        getdisplay().setCursor(startX, y);
-        getdisplay().print(integerPart);
-
-        // Draw decimal part immediately after integer part
-        display.setFont(decimalFont);
-        getdisplay().setCursor(decimalLeftX, y);
-        getdisplay().print(decimalPart);
-
-        return;
     }
 
-    // -----------------------------------------------------------------
-    // Normal rendering (no small decimals)
-    // -----------------------------------------------------------------
+    const int16_t totalWidth = intW + decW;
+    int16_t startX;
+    switch (align) {
+        case 0: // LEFT
+            startX = x;
+            break;
+        case 1: // CENTER
+            startX = x - totalWidth / 2;
+            break;
+        case 2: // RIGHT
+        default:
+            startX = x - totalWidth;
+            break;
+    }
+    decimalLeftX = startX + intW;
+
+    // Draw integer part
     display.setFont(mainFont);
-    if (align == 2) {
-        drawTextRalign(x, y, sBoatValue, dsegAdjust);
-    } else if (align == 1) {
-        drawTextCenter(x, y, sBoatValue, dsegAdjust);
-    } else {
-        getdisplay().setCursor(x, y);
-        getdisplay().print(sBoatValue);
+    getdisplay().setCursor(startX, y);
+    getdisplay().print(integerPart);
+
+    // Draw decimal part only when present
+    if (dot != -1 && decimalPart.length() > 0) {
+        display.setFont(smallDecs ? decimalFont : mainFont);
+        getdisplay().setCursor(decimalLeftX, y);
+        getdisplay().print(decimalPart);
     }
 }
 

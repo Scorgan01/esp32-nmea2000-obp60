@@ -72,11 +72,7 @@ private:
             nameFnt = &Ubuntu_Bold20pt8b;
             unitX = 10;
             unitY = 121;
-            // unitXoff = -295;
-            //unitXoff = -280;
-            //unitYoff = 21;
             unitFnt = &Ubuntu_Bold12pt8b;
-            // value1Xoff = 111;
             valueXoff = 0;
             valueYoff = -119;
             valueFontSize1 = 12;
@@ -143,6 +139,8 @@ public:
     {
         commonData = &common;
         logger = commonData->logger;
+        GwConfigHandler *config = commonData->config;
+
         LOG_DEBUG(GwLog::LOG, "Instantiate PageOneValue");
 
         width = getdisplay().width(); // Screen width
@@ -150,7 +148,7 @@ public:
         getdisplay().setTextWrap(false);
 
         // Get config data
-        useSimuData = commonData->config->getBool(commonData->config->useSimuData);
+        useSimuData = config->getBool(config->useSimuData);
         holdValues = commonData->config->getBool(commonData->config->holdvalues);
         flashLED = commonData->config->getString(commonData->config->flashLED);
         smallDecimals = commonData->config->getBool(commonData->config->smallDecimals);
@@ -264,12 +262,13 @@ public:
         // Get boat value for page
         GwApi::BoatValue* bValue1 = pageData.values[0]; // Page boat data element
 
+#ifdef BOARD_OBP60S3
         // Optical warning by limit violation (unused)
         if (String(flashLED) == "Limit Violation") {
             setBlinkingLED(false);
             setFlashLED(false);
         }
-
+#endif
         if (bValue1 == NULL)
             return PAGE_OK; // no data, no page to display
 
@@ -280,13 +279,13 @@ public:
 
         displaySetPartialWindow(0, 0, width, height); // Set partial update
 
-        if (dataChart) { // Check only if dataChart object exist^s at all
+        if (dataChart) { // Check only if dataChart object exists at all
             if (!dataChart->isValid()) {
                 dataChart->init(); // try late initialization if chart object could not be properly initialized earlier due to missing boat data
             }
         }
 
-        if (pageMode == VALUE || dataHstryBuf == nullptr) {
+        if (pageMode == VALUE || dataChart == nullptr) {
             // show only data value; ignore other pageMode options if no chart supported boat data history buffer is available
             showData(bValue1, FULL);
 

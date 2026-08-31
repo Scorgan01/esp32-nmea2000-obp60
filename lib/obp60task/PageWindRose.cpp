@@ -5,7 +5,10 @@
 
 class PageWindRose : public Page
 {
-int16_t lp = 80;                    // Pointer length
+private:
+    static constexpr int8_t LEFT = 0;
+    static constexpr int8_t CENTER = 1;
+    static constexpr int8_t RIGHT = 2;
 
 public:
     PageWindRose(CommonData &common){
@@ -27,6 +30,9 @@ public:
         GwConfigHandler *config = commonData->config;
         GwLog *logger = commonData->logger;
 
+        int valueX, valueY;
+        int DsegFontSize;
+
         static String svalue1old = "";
         static String unit1old = "";
         static String svalue2old = "";
@@ -41,19 +47,18 @@ public:
         static String unit6old = "";
 
         // Get config data
-        String lengthformat = config->getString(config->lengthFormat);
         bool simulation = config->getBool(config->useSimuData);
         bool holdvalues = config->getBool(config->holdvalues);
         String flashLED = config->getString(config->flashLED);
-        String backlightMode = config->getString(config->backlight);
+        bool smallDecimals = config->getBool(config->smallDecimals);
 
         // Get boat value for AWA
         GwApi::BoatValue *bvalue1 = pageData.values[0]; // First element in list (only one value by PageOneValue)
         String name1 = xdrDelete(bvalue1->getName());   // Value name
         name1 = name1.substring(0, 6);                  // String length limit for value name
         double value1 = bvalue1->value;                 // Value as double in SI unit
-        bool valid1 = bvalue1->valid;                   // Valid information
         value1 = formatValue(bvalue1, *commonData).value;// Format only nesaccery for simulation data for pointer
+        bool valid1 = bvalue1->valid;                   // Valid information
         String svalue1 = formatValue(bvalue1, *commonData).svalue;    // Formatted value as string including unit conversion and switching decimal places
         String unit1 = formatValue(bvalue1, *commonData).unit;        // Unit of value
         if(valid1 == true){
@@ -141,13 +146,10 @@ public:
 
         // Set display in partial refresh mode
         displaySetPartialWindow(0, 0, getdisplay().width(), getdisplay().height()); // Set partial update
-
         getdisplay().setTextColor(commonData->fgcolor);
 
         // Show values AWA
-        getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-        getdisplay().setCursor(10, 65);
-        getdisplay().print(svalue1);                     // Value
+        printBoatValue(svalue1, 101, 65, RIGHT, 20, smallDecimals); // value
         getdisplay().setFont(&Ubuntu_Bold12pt8b);
         getdisplay().setCursor(10, 95);
         getdisplay().print(name1);                       // Name
@@ -161,13 +163,11 @@ public:
             getdisplay().print(unit1old);                // Unit
         }
 
-        // Horizintal separator left
+        // Horizontal separator left
         getdisplay().fillRect(0, 149, 60, 3, commonData->fgcolor);
 
         // Show values AWS
-        getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-        getdisplay().setCursor(10, 270);
-        getdisplay().print(svalue2);                     // Value
+        printBoatValue(svalue2, 101, 270, RIGHT, 20, smallDecimals); // value
         getdisplay().setFont(&Ubuntu_Bold12pt8b);
         getdisplay().setCursor(10, 220);
         getdisplay().print(name2);                       // Name
@@ -182,14 +182,7 @@ public:
         }
 
         // Show values TWD
-        getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-        getdisplay().setCursor(295, 65);
-        if(valid3 == true){
-            getdisplay().print(abs(value3 * 180 / PI), 0);   // Value
-        }
-        else{
-            getdisplay().print("---");                   // Value
-        }
+        printBoatValue(svalue3, 391, 65, RIGHT, 20, smallDecimals); // value
         getdisplay().setFont(&Ubuntu_Bold12pt8b);
         getdisplay().setCursor(335, 95);
         getdisplay().print(name3);                       // Name
@@ -207,9 +200,7 @@ public:
         getdisplay().fillRect(340, 149, 80, 3, commonData->fgcolor);
 
         // Show values TWS
-        getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-        getdisplay().setCursor(295, 270);
-        getdisplay().print(svalue4);                     // Value
+        printBoatValue(svalue4, 391, 270, RIGHT, 20, smallDecimals); // value
         getdisplay().setFont(&Ubuntu_Bold12pt8b);
         getdisplay().setCursor(335, 220);
         getdisplay().print(name4);                       // Name
@@ -227,7 +218,7 @@ public:
         
         // Draw wind rose
         int rInstrument = 110;     // Radius of grafic instrument
-        float pi = 3.141592;
+        String sDegree;
 
         getdisplay().fillCircle(200, 150, rInstrument + 10, commonData->fgcolor);    // Outer circle
         getdisplay().fillCircle(200, 150, rInstrument + 7, commonData->bgcolor);     // Outer circle
@@ -237,56 +228,38 @@ public:
         for(int i=0; i<360; i=i+10)
         {
             // Scaling values
-            float x = 200 + (rInstrument-30)*sin(i/180.0*pi);  //  x-coordinate dots
-            float y = 150 - (rInstrument-30)*cos(i/180.0*pi);  //  y-coordinate cots
-            const char *ii = "";
-            switch (i)
-{
-            case 0: ii="0"; break;
-            case 30 : ii="30"; break;
-            case 60 : ii="60"; break;
-            case 90 : ii="90"; break;
-            case 120 : ii="120"; break;
-            case 150 : ii="150"; break;
-            case 180 : ii="180"; break;
-            case 210 : ii="210"; break;
-            case 240 : ii="240"; break;
-            case 270 : ii="270"; break;
-            case 300 : ii="300"; break;
-            case 330 : ii="330"; break;
-            default: break;
-            }
+            float x = 200 + (rInstrument-30)*sin(i/180.0*M_PI);  //  x-coordinate dots
+            float y = 150 - (rInstrument-30)*cos(i/180.0*M_PI);  //  y-coordinate cots
 
-            // Print text centered on position x, y
-            int16_t x1, y1;     // Return values of getTextBounds
-            uint16_t w, h;      // Return values of getTextBounds
-            displayGetTextBounds(ii, int(x), int(y), &x1, &y1, &w, &h); // Calc width of new string
-            getdisplay().setCursor(x-w/2, y+h/2);
             if(i % 30 == 0){
+                // Print text centered on position x, y
+                int16_t x1, y1;     // Return values of getTextBounds
+                uint16_t w, h;      // Return values of getTextBounds
+                sDegree = String(i);
                 getdisplay().setFont(&Ubuntu_Bold8pt8b);
-                getdisplay().print(ii);
-            }
+                displayGetTextBounds(sDegree, int(x), int(y), &x1, &y1, &w, &h); // Calc width of new string
+                getdisplay().setCursor(x-w/2, y+h/2);
+                getdisplay().print(sDegree);
 
-            // Draw sub scale with dots
-            float x1c = 200 + rInstrument*sin(i/180.0*pi);
-            float y1c = 150 - rInstrument*cos(i/180.0*pi);
-            getdisplay().fillCircle((int)x1c, (int)y1c, 2, commonData->fgcolor);
-            float sinx=sin(i/180.0*pi);
-            float cosx=cos(i/180.0*pi); 
-
-            // Draw sub scale with lines (two triangles)
-            if(i % 30 == 0){
+                // Draw sub scale with lines (two triangles)
                 float dx=2;   // Line thickness = 2*dx+1
                 float xx1 = -dx;
                 float xx2 = +dx;
                 float yy1 =  -(rInstrument-10);
                 float yy2 =  -(rInstrument+10);
+                float sinx = sin(i/180.0*M_PI);
+                float cosx = cos(i/180.0*M_PI); 
                 getdisplay().fillTriangle(200+(int)(cosx*xx1-sinx*yy1),150+(int)(sinx*xx1+cosx*yy1),
                         200+(int)(cosx*xx2-sinx*yy1),150+(int)(sinx*xx2+cosx*yy1),
                         200+(int)(cosx*xx1-sinx*yy2),150+(int)(sinx*xx1+cosx*yy2),commonData->fgcolor);
                 getdisplay().fillTriangle(200+(int)(cosx*xx2-sinx*yy1),150+(int)(sinx*xx2+cosx*yy1),
                         200+(int)(cosx*xx1-sinx*yy2),150+(int)(sinx*xx1+cosx*yy2),
                         200+(int)(cosx*xx2-sinx*yy2),150+(int)(sinx*xx2+cosx*yy2),commonData->fgcolor);
+            } else {
+                // Draw sub scale with dots
+                float x1c = 200 + rInstrument*sin(i/180.0*M_PI);
+                float y1c = 150 - rInstrument*cos(i/180.0*M_PI);
+                getdisplay().fillCircle((int)x1c, (int)y1c, 2, commonData->fgcolor);
             }
         }
 
@@ -323,9 +296,7 @@ public:
 //*******************************************************************************************
 
         // Show values DBT
-        getdisplay().setFont(&DSEG7Classic_BoldItalic16pt7b);
-        getdisplay().setCursor(160, 200);
-        getdisplay().print(svalue5);                     // Value
+        printBoatValue(svalue5, 200, 200, CENTER, 16, smallDecimals); // value
         getdisplay().setFont(&Ubuntu_Bold8pt8b);
         getdisplay().setCursor(190, 215);
         getdisplay().print(" ");
@@ -337,9 +308,7 @@ public:
         }
 
         // Show values STW
-        getdisplay().setFont(&DSEG7Classic_BoldItalic16pt7b);
-        getdisplay().setCursor(160, 130);
-        getdisplay().print(svalue6);                     // Value
+        printBoatValue(svalue6, 200, 130, CENTER, 16, smallDecimals); // value
         getdisplay().setFont(&Ubuntu_Bold8pt8b);
         getdisplay().setCursor(190, 90);
         getdisplay().print(" ");

@@ -50,15 +50,10 @@ String formatLongitude(double lon) {
     return String(degree, 0) + "\x90 " + String(minute, 4) + "' " + ((lon > 0) ? "E" : "W");
 }
 
-// Convert and format boat value from SI to user defined format (definition for compatibility purposes)
-FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata) {
-
-    return formatValue(value, commondata, false); // call <formatValue> with standard handling of user setting for simulation data
-}
-
 // Convert and format boat value from SI to user defined format
-// generate random simulation data; can be deselected to use conversion+formatting function even in simulation mode
-FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool ignoreSimuDataSetting){
+// generates random simulation data; can be deselected to use conversion+formatting function even in simulation mode
+// String setPrecision - overrides precision setting from config; if not set, use config setting
+FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool ignoreSimuDataSetting, String setPrecision) {
     GwLog *logger = commondata.logger;
     FormattedData result;
     static int dayoffset = 0;
@@ -76,12 +71,13 @@ FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool 
     String tempFormat = commondata.config->getString(commondata.config->tempFormat);            // [K|°C|°F]
     String dateFormat = commondata.config->getString(commondata.config->dateFormat);            // [DE|GB|US]
     String precision = commondata.config->getString(commondata.config->valueprecision);         // [1|2]
+    bool usesimudata = commondata.config->getBool(commondata.config->useSimuData);              // [on|off]
 
-    bool usesimudata;
+    if (setPrecision == "1" || setPrecision == "2") {
+        precision = setPrecision; // override precision setting from config
+    }
     if (ignoreSimuDataSetting){
         usesimudata = false; // ignore user setting for simulation data; we want to format the boat value passed to this function
-    } else {
-        usesimudata = commondata.config->getBool(commondata.config->useSimuData);              // [on|off]
     }
 
     // If boat value not valid
@@ -216,7 +212,7 @@ FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool 
             rawvalue = value->value;
         }
         else {
-            course = M_PI_2 + float(random(-17, 17) / 100.0); // create random course/wind values with 90° +/- 10°
+            course = M_PI_2 + float(random(-26, 26) / 100.0); // create random course/wind values with 90° +/- 15°
             rawvalue = course;
         }
         course = WindUtils::to360(course * RAD_TO_DEG);      // Unit conversion form rad to deg
@@ -906,6 +902,24 @@ FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool 
     result.value = rawvalue;        // Return value is only necessary in case of simulation of graphic pointer
     result.svalue = String(buffer);
     return result;
+}
+
+// Convert and format boat value from SI to user defined format
+FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata) {
+
+    return formatValue(value, commondata, false, String("-1")); // call <formatValue> with standard setting for simulation data and precision setting from config
+}
+
+// Convert and format boat value from SI to user defined format with simulation data setting and precision setting from config
+FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool ignoreSimuDataSetting) {
+
+    return formatValue(value, commondata, ignoreSimuDataSetting, String("-1"));
+}
+
+// Convert and format boat value from SI to user defined format with standard setting for simulation data and specified precision
+FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, String setPrecision) {
+
+    return formatValue(value, commondata, false, setPrecision);
 }
 
 // Helper method for conversion of any data value from SI to user defined format

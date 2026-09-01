@@ -117,6 +117,7 @@ public:
         bool smallDecimals = config->getBool(config->smallDecimals);
 
         double value1 = 0;
+        String svalue = "---";
         double valueTrend = 0;  // Average over 10 values
         
         // Get voltage value
@@ -239,10 +240,12 @@ public:
             printAvg(average, 320, 84, true);
 
             // Reading bus data or using simulation data
-            getdisplay().setFont(&DSEG7Classic_BoldItalic60pt7b);
-            getdisplay().setCursor(20, 240);
-            String sValue = formatValue(value1, String("formatXdr:U:V"), *commonData);
-            printBoatValue(sValue, 300, 240, RIGHT, 60, smallDecimals);
+            if(valid1 == true || holdvalues == true){
+                svalue = formatValue(value1, String("formatXdr:U:V"), *commonData);
+            } else {
+                svalue = "---"; // Missing bus data
+            }
+            printBoatValue(svalue, 300, 240, RIGHT, 60, smallDecimals);
 
             // Show trend indicator
             if(trend == true){

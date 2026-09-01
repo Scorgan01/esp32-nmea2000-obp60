@@ -922,6 +922,22 @@ FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, Strin
     return formatValue(value, commondata, false, setPrecision);
 }
 
+// Format double value from SI to user defined format and convert to string user defined precision setting
+String formatValue(const double &value, const String &vFormat, CommonData &commondata)
+{
+    GwApi::BoatValue tmpBVal("dummy"); // temporary boat value for string formatter
+    String sVal;
+
+    tmpBVal.setFormat(vFormat);
+    tmpBVal.valid = true;
+    tmpBVal.value = value;
+    sVal = formatValue(&tmpBVal, commondata, false, String("-1")).svalue; // Formatted value as string including unit conversion and switching decimal places
+    if (sVal.length() > 0 && sVal[0] == '!') {
+        sVal = sVal.substring(1); // cut leading "!" created at OBPFormatter; doesn't work for other fonts than 7SEG
+    }
+    return sVal;
+}
+
 // Helper method for conversion of any data value from SI to user defined format
 double convertValue(const double &value, const String &name, const String &format, CommonData &commondata)
 {

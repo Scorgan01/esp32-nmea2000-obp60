@@ -205,6 +205,8 @@ typedef struct{
 // Formatter for boat values
 FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata);
 FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool ignoreSimuDataSetting);
+FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, String setPrecision);
+String formatValue(const double &value, const String &vFormat, CommonData &commondata);
 
 // Helper method for conversion of any data value from SI to user defined format (defined in OBP60Formatter)
 double convertValue(const double &value, const String &format, CommonData &commondata);

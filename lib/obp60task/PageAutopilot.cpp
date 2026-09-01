@@ -31,6 +31,10 @@ const float Compass_LineDelta = 8.0;// Compass band: 1deg = 5 Pixels, 10deg = 50
 
 class PageAutopilot : public Page
 {
+    static constexpr int8_t LEFT = 0;
+    static constexpr int8_t CENTER = 1;
+    static constexpr int8_t RIGHT = 2;
+
     int WhichDataCompass = ShowHDM; // Start value
     int WhichDataDisplay = ShowHDM; // Start value
 
@@ -85,6 +89,7 @@ class PageAutopilot : public Page
         bool holdvalues = config->getBool(config->holdvalues);
         String flashLED = config->getString(config->flashLED);
         String backlightMode = config->getString(config->backlight);
+        bool smallDecimals = config->getBool(config->smallDecimals);
         
         GwApi::BoatValue *bvalue;
         String DataName[HowManyValues];
@@ -130,14 +135,12 @@ class PageAutopilot : public Page
         getdisplay().setFont(&Ubuntu_Bold12pt8b);
         getdisplay().setCursor(10, 120);
         getdisplay().print(DataUnits[WhichDataDisplay]); 
-        getdisplay().setCursor(190, 120);
-        getdisplay().setFont(&DSEG7Classic_BoldItalic42pt7b);
-  
+
         if(holdvalues == false){
-            getdisplay().print(DataText[WhichDataDisplay]);                     // Real value as formated string
+            printBoatValue(DataText[WhichDataDisplay], 190, 120, LEFT, 42, smallDecimals);      // Real value as formated string
         }
         else{
-            getdisplay().print(OldDataText[WhichDataDisplay]);                  // Old value as formated string
+            printBoatValue(OldDataText[WhichDataDisplay], 190, 120, LEFT, 42, smallDecimals);   // Old value as formated string
         }
         if(DataValid[WhichDataDisplay] == true){
             OldDataText[WhichDataDisplay] = DataText[WhichDataDisplay];         // Save the old value

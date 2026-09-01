@@ -39,10 +39,10 @@ struct Points {
 
 // Screen coordinates for four boat data values (top-left, bottom-left, top-right, bottom-right)
 static constexpr Points POS[] = {
-    { 10, 65, 10, 95, 10, 115 }, // Position top left for value, name, unit
-    { 10, 270, 10, 220, 10, 190 }, // Position bottom left
-    { 295, 65, 390, 95, 390, 115 }, // Position top right
-    { 295, 270, 390, 220, 390, 190 } // Position bottom right
+    { 101, 65, 10, 95, 10, 115 }, // Position top left for value, name, unit
+    { 101, 270, 10, 220, 10, 190 }, // Position bottom left
+    { 395, 65, 390, 95, 390, 115 }, // Position top right
+    { 395, 270, 390, 220, 390, 190 } // Position bottom right
 };
 
 // Define wave visual (XBM Format)
@@ -75,6 +75,10 @@ static const uint8_t wave_bitmap[] PROGMEM = {
 
 class PageCurrent : public Page {
 private:
+    static constexpr int8_t LEFT = 0;
+    static constexpr int8_t CENTER = 1;
+    static constexpr int8_t RIGHT = 2;
+
     GwLog* logger;
 
     int width; // Screen width
@@ -86,6 +90,7 @@ private:
     bool holdValues;
     String flashLED;
     String backlightMode;
+    bool smallDecimals;
     String leeKStd;
     double leeK;
     movingAvgAngle<double> SetAvg {8}; // Store average of the last 8 values of SET angle values
@@ -317,6 +322,7 @@ public:
         holdValues = commonData->config->getBool(commonData->config->holdvalues);
         flashLED = commonData->config->getString(commonData->config->flashLED);
         backlightMode = commonData->config->getString(commonData->config->backlight);
+        smallDecimals = commonData->config->getBool(commonData->config->smallDecimals);
 
         leeKStd = commonData->config->getString(commonData->config->leeKStd);
         auto it = leeKMap.find(leeKStd.c_str());
@@ -435,12 +441,10 @@ public:
             unit = unit.substring(0, 6); // String length limit for value unit
 
             // Show boat data value
-            getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-            getdisplay().setCursor(POS[i].x1, POS[i].y1);
             if (!holdValues || useSimuData) {
-                getdisplay().print(sValue);
+                printBoatValue(sValue, POS[i].x1, POS[i].y1, RIGHT, 20, smallDecimals);
             } else {
-                getdisplay().print(sValueOld[i]);
+                printBoatValue(sValueOld[i], POS[i].x1, POS[i].y1, RIGHT, 20, smallDecimals);
             }
 
             // Show name

@@ -5,6 +5,10 @@
 
 class PageBME280 : public Page
 {
+    static constexpr int8_t LEFT = 0;
+    static constexpr int8_t CENTER = 1;
+    static constexpr int8_t RIGHT = 2;
+
     public:
     PageBME280(CommonData &common){
         commonData = &common;
@@ -37,6 +41,7 @@ class PageBME280 : public Page
         String flashLED = config->getString(config->flashLED);
         String backlightMode = config->getString(config->backlight);
         String useenvsensor = config->getString(config->useEnvSensor);
+        bool smallDecimals = config->getBool(config->smallDecimals);
         
         // Get sensor values #1
         String name1 = "Temp";                          // Value name
@@ -121,12 +126,8 @@ class PageBME280 : public Page
         getdisplay().setCursor(20, 90);
         getdisplay().print(unit1);                           // Unit
 
-        // Switch font if format for any values
-        getdisplay().setFont(&DSEG7Classic_BoldItalic30pt7b);
-        getdisplay().setCursor(180, 90);
-
         // Show bus data
-        getdisplay().print(svalue1);                         // Real value as formated string
+        printBoatValue(svalue1, 380, 90, RIGHT, 30, smallDecimals);  // Real value as formated string
 
         // ############### Horizontal Line ################
 
@@ -145,12 +146,8 @@ class PageBME280 : public Page
         getdisplay().setCursor(20, 180);
         getdisplay().print(unit2);                           // Unit
 
-        // Switch font if format for any values
-        getdisplay().setFont(&DSEG7Classic_BoldItalic30pt7b);
-        getdisplay().setCursor(180, 180);
-
         // Show bus data
-        getdisplay().print(svalue2);                         // Real value as formated string
+        printBoatValue(svalue2, 380, 180, RIGHT, 30, smallDecimals); // Real value as formated string
 
         // ############### Horizontal Line ################
 
@@ -169,12 +166,8 @@ class PageBME280 : public Page
         getdisplay().setCursor(20, 270);
         getdisplay().print(unit3);                           // Unit
 
-        // Switch font if format for any values
-        getdisplay().setFont(&DSEG7Classic_BoldItalic30pt7b);
-        getdisplay().setCursor(140, 270);
-
         // Show bus data
-        getdisplay().print(svalue3);                         // Real value as formated string
+        printBoatValue(svalue3, 380, 270, RIGHT, 30, smallDecimals); // Real value as formated string
 
         return PAGE_UPDATE;
     };

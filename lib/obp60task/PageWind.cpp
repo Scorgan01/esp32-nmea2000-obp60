@@ -213,6 +213,10 @@ static unsigned char front_bits[] PROGMEM = {
 
 class PageWind : public Page
 {
+static constexpr int8_t LEFT = 0;
+static constexpr int8_t CENTER = 1;
+static constexpr int8_t RIGHT = 2;
+
 bool keylock = false;               // Keylock
 int8_t lp = 80;                     // Pointer length
 char mode = 'N';                    // page mode (N)ormal | (L)ens | e(X)ample
@@ -306,11 +310,10 @@ public:
         static String unit2old = "";
 
         // Get config data
-        String lengthformat = config->getString(config->lengthFormat);
         bool simulation = config->getBool(config->useSimuData);
         bool holdvalues = config->getBool(config->holdvalues);
         String flashLED = config->getString(config->flashLED);
-        String backlightMode = config->getString(config->backlight);
+        bool smallDecimals = config->getBool(config->smallDecimals);
 
         GwApi::BoatValue *bvalue1; // Value 1 for speed on top
         GwApi::BoatValue *bvalue2; // Value 2 for angle on bottom
@@ -512,17 +515,14 @@ public:
             }
 
             // Wind speed as decimal number
-            getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-            getdisplay().setCursor(150, 250);
             if (holdvalues == false) {
-                getdisplay().print(svalue1);
+                printBoatValue(svalue1, 260, 250, RIGHT, 26, smallDecimals);
             } else {
-                getdisplay().print(svalue1old);
+                printBoatValue(svalue1old, 260, 250, RIGHT, 26, smallDecimals);
             }
             // unit
             getdisplay().setFont(&Ubuntu_Bold8pt8b);
-            getdisplay().setCursor(220, 265);
-            getdisplay().print("kts");
+            drawTextRalign(260, 265, unit1);
         }
         else {
             // Normal mode
@@ -584,17 +584,14 @@ public:
             }
 
             // Wind speed as decimal number
-            getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-            getdisplay().setCursor(150, 250);
             if (holdvalues == false) {
-                getdisplay().print(svalue1);
+                printBoatValue(svalue1, 260, 250, RIGHT, 26, smallDecimals);
             } else {
-                getdisplay().print(svalue1old);
+                printBoatValue(svalue1old, 260, 250, RIGHT, 26, smallDecimals);
             }
             // unit
             getdisplay().setFont(&Ubuntu_Bold8pt8b);
-            getdisplay().setCursor(220, 265);
-            getdisplay().print("kts");
+            drawTextRalign(260, 265, unit1);
 
             // Wind pointer (angle)
             if (bvalue2->valid or simulation) {

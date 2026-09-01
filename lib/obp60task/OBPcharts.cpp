@@ -581,6 +581,11 @@ void Chart::drawChrtValAxis(const ChrtDir chrtDir, const ChrtSize chrtSz, const 
 // Print current data value
 void Chart::prntCurrValue(const ChrtDir chrtDir, GwApi::BoatValue& currValue)
 {
+    static constexpr int8_t LEFT = 0;
+    static constexpr int8_t CENTER = 1;
+    static constexpr int8_t RIGHT = 2;
+    static constexpr bool smallDecimals = true; // print data value always with small decimals
+
     const int xPosVal = (chrtDir == HORIZONTAL) ? cRoot.x + (timAxis / 2) - 74 : cRoot.x + 31;
     const int yPosVal = (chrtDir == HORIZONTAL) ? cRoot.y + valAxis : cRoot.y + timAxis;
 
@@ -593,19 +598,20 @@ void Chart::prntCurrValue(const ChrtDir chrtDir, GwApi::BoatValue& currValue)
     getdisplay().drawRect(xPosVal, yPosVal - 39, 146, 37, fgColor); // Draw box for value
 
     // value
-    getdisplay().setFont(&DSEG7Classic_BoldItalic16pt7b);
-    getdisplay().setCursor(xPosVal + 1, yPosVal - 6);
-    getdisplay().print(sdbValue);
+    printBoatValue(sdbValue, xPosVal + 93, yPosVal - 6, RIGHT, 16, smallDecimals);
+//    getdisplay().setFont(&DSEG7Classic_BoldItalic16pt7b);
+//    getdisplay().setCursor(xPosVal + 1, yPosVal - 6);
+//    getdisplay().print(sdbValue);
 
     // name
     getdisplay().setFont(&Ubuntu_Bold10pt8b);
-    getdisplay().setCursor(xPosVal + 100, yPosVal - 23);
+    getdisplay().setCursor(xPosVal + 97, yPosVal - 23);
     String name = xdrDelete(dbName);
     getdisplay().print(name.substring(0, 3)); // Name, limited to 3 characters
 
     // unit
     getdisplay().setFont(&Ubuntu_Bold8pt8b);
-    getdisplay().setCursor(xPosVal + 101, yPosVal - 8);
+    getdisplay().setCursor(xPosVal + 98, yPosVal - 8);
     getdisplay().print(dbUnit);
 }
 

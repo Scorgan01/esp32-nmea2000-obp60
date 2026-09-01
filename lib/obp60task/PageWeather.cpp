@@ -14,6 +14,10 @@ private:
         CHART
     };
 
+    static constexpr int8_t LEFT = 0;
+    static constexpr int8_t CENTER = 1;
+    static constexpr int8_t RIGHT = 2;
+
     static constexpr int XOFFSET = 133; // x offset for display of boat values
 
     int width; // Screen width
@@ -28,8 +32,7 @@ private:
     bool useSimuData;
     bool holdValues;
     String flashLED;
-    String backlightMode;
-    String tempFormat;
+    bool smallDecimals;
 
     static constexpr int NUMVALUES = 4; // number of boat values used on this page
     static constexpr int NUMCHARTS = 1; // one data buffer used on this page
@@ -74,16 +77,13 @@ private:
             }
 
             // Print value
-            getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-            if (bValue[i]->getFormat() == "formatXdr:P:P" || bValue[i]->getFormat() == "formatXdr:P:B") {
-                getdisplay().setCursor(6 + xOffset, 275); // pressure format is always 4 digits when all other boat data has 3 digit format
-            } else {
-                getdisplay().setCursor(37 + xOffset, 275);
-            }
+            int valueX = XOFFSET * i - 5;
+            int valueY = 275;
+            int DsegFontSize = 20;
             if (!holdValues || useSimuData) {
-                getdisplay().print(sValue); // Real value as formated string
+                printBoatValue(sValue, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Real value as formated string
             } else {
-                getdisplay().print(sValueOld[i]); // Old value as formated string
+                printBoatValue(sValueOld[i], valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Old value as formated string
             }
 
             if (valid) { // Save value for hold function
@@ -112,8 +112,7 @@ public:
         useSimuData = commonData->config->getBool(commonData->config->useSimuData);
         holdValues = commonData->config->getBool(commonData->config->holdvalues);
         flashLED = commonData->config->getString(commonData->config->flashLED);
-        backlightMode = commonData->config->getString(commonData->config->backlight);
-        tempFormat = commonData->config->getString(commonData->config->tempFormat); // [K|°C|°F]
+        smallDecimals = commonData->config->getBool(commonData->config->smallDecimals);
     }
 
     virtual void setupKeys()
@@ -239,8 +238,10 @@ public:
 
         displaySetPartialWindow(0, 0, width, height); // Set partial update
 
-        if (!dataChart[0]->isValid()) {
-            dataChart[0]->init(); // try late initialization if chart object could not be properly initialized earlier due to missing boat data
+        if (dataChart[0]) { // Check only if dataChart object exists at all
+			if (!dataChart[0]->isValid()) {
+				dataChart[0]->init(); // try late initialization if chart object could not be properly initialized earlier due to missing boat data
+			}
         }
 
         if (pageMode == VAL_CHART) {

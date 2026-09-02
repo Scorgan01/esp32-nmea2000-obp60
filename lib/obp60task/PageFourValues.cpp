@@ -123,20 +123,14 @@ class PageFourValues : public Page
         if(bvalue1->getFormat() == "formatLatitude" || bvalue1->getFormat() == "formatLongitude"){
             valueY = 55;
             DsegFontSize = 12;
-            getdisplay().setFont(&Ubuntu_Bold12pt8b);
-            getdisplay().setCursor(120, 55);
         }
         else if(bvalue1->getFormat() == "formatTime" || bvalue1->getFormat() == "formatDate"){
             valueY = 67;
             DsegFontSize = 20;
-            getdisplay().setFont(&Ubuntu_Bold12pt8b);
-            getdisplay().setCursor(150, 58);
         }
         else{
             valueY = 67;
             DsegFontSize = 20;
-            getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-            getdisplay().setCursor(180, 65);
         }
 
         // Show bus data
@@ -144,7 +138,7 @@ class PageFourValues : public Page
             printBoatValue(svalue1, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Real value as formated string
         }
         else{
-            printBoatValue(svalue1old, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Real value as formated string
+            printBoatValue(svalue1old, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Old value as formated string
         }
         if(valid1 == true){
             svalue1old = svalue1;                                       // Save the old value
@@ -177,20 +171,14 @@ class PageFourValues : public Page
         if(bvalue2->getFormat() == "formatLatitude" || bvalue2->getFormat() == "formatLongitude"){
             valueY = 123;
             DsegFontSize = 12;
-            getdisplay().setFont(&Ubuntu_Bold12pt8b);
-            getdisplay().setCursor(120, 123);
         }
         else if(bvalue2->getFormat() == "formatTime" || bvalue2->getFormat() == "formatDate"){
             valueY = 135;
             DsegFontSize = 20;
-            getdisplay().setFont(&Ubuntu_Bold12pt8b);
-            getdisplay().setCursor(150, 123);
         }
         else{
             valueY = 135;
             DsegFontSize = 20;
-            getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-            getdisplay().setCursor(180, 133);
         }
 
         // Show bus data
@@ -198,7 +186,7 @@ class PageFourValues : public Page
             printBoatValue(svalue2, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Real value as formated string
         }
         else{
-            printBoatValue(svalue2old, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Real value as formated string
+            printBoatValue(svalue2old, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Old value as formated string
         }
         if(valid2 == true){
             svalue2old = svalue2;                                       // Save the old value
@@ -231,20 +219,14 @@ class PageFourValues : public Page
         if(bvalue3->getFormat() == "formatLatitude" || bvalue3->getFormat() == "formatLongitude"){
             valueY = 191;
             DsegFontSize = 16;
-            getdisplay().setFont(&Ubuntu_Bold12pt8b);
-            getdisplay().setCursor(120, 191);
         }
         else if(bvalue3->getFormat() == "formatTime" || bvalue3->getFormat() == "formatDate"){
             valueY = 203;
             DsegFontSize = 20;
-            getdisplay().setFont(&Ubuntu_Bold12pt8b);
-            getdisplay().setCursor(150, 191);
         }
         else{
             valueY = 203;
             DsegFontSize = 20;
-            getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-            getdisplay().setCursor(180, 201);
         }
 
         // Show bus data
@@ -252,7 +234,7 @@ class PageFourValues : public Page
             printBoatValue(svalue3, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Real value as formated string
         }
         else{
-            printBoatValue(svalue3old, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Real value as formated string
+            printBoatValue(svalue3old, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Old value as formated string
         }
         if(valid3 == true){
             svalue3old = svalue3;                                       // Save the old value
@@ -285,20 +267,14 @@ class PageFourValues : public Page
         if(bvalue4->getFormat() == "formatLatitude" || bvalue4->getFormat() == "formatLongitude"){
             valueY = 271;
             DsegFontSize = 16;
-            getdisplay().setFont(&Ubuntu_Bold12pt8b);
-            getdisplay().setCursor(120, 259);
         }
         else if(bvalue4->getFormat() == "formatTime" || bvalue4->getFormat() == "formatDate"){
             valueY = 271;
             DsegFontSize = 20;
-            getdisplay().setFont(&Ubuntu_Bold12pt8b);
-            getdisplay().setCursor(150, 259);
         }
         else{
             valueY = 271;
             DsegFontSize = 20;
-            getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-            getdisplay().setCursor(180, 269);
         }
 
         // Show bus data
@@ -306,7 +282,7 @@ class PageFourValues : public Page
             printBoatValue(svalue4, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Real value as formated string
         }
         else{
-            printBoatValue(svalue4old, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Real value as formated string
+            printBoatValue(svalue4old, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Old value as formated string
         }
         if(valid4 == true){
             svalue4old = svalue4;                                       // Save the old value

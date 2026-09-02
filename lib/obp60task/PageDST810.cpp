@@ -5,6 +5,11 @@
 
 class PageDST810 : public Page
 {
+    private:
+        static constexpr int8_t LEFT = 0;
+        static constexpr int8_t CENTER = 1;
+        static constexpr int8_t RIGHT = 2;
+
 public:
     PageDST810(CommonData &common){
         commonData = &common;
@@ -24,6 +29,9 @@ public:
         GwConfigHandler *config = commonData->config;
         GwLog *logger = commonData->logger;
 
+        int valueX, valueY;
+        int DsegFontSize;
+
         // Old values for hold function
         static String svalue1old = "";
         static String unit1old = "";
@@ -40,6 +48,7 @@ public:
         bool holdvalues = config->getBool(config->holdvalues);
         String flashLED = config->getString(config->flashLED);
         String backlightMode = config->getString(config->backlight);
+        bool smallDecimals = config->getBool(config->smallDecimals);
         
         // Get boat values #1
         GwApi::BoatValue *bvalue1 = pageData.values[0]; // First element in list (only one value by PageOneValue)
@@ -100,7 +109,8 @@ public:
         // Show name
         getdisplay().setFont(&Ubuntu_Bold20pt8b);
         getdisplay().setCursor(20, 55);
-        getdisplay().print("Depth");                         // Page name
+//        getdisplay().print("Depth");                         // Page name
+        getdisplay().print(name1);                         // Page name
 
         // Show unit
         getdisplay().setFont(&Ubuntu_Bold12pt8b);
@@ -112,16 +122,15 @@ public:
             getdisplay().print(unit1old);
         }
 
-        // Set font
-        getdisplay().setFont(&DSEG7Classic_BoldItalic30pt7b);
-        getdisplay().setCursor(180, 90);
-
         // Show bus data
+        valueX = 380;
+        valueY = 90;
+        DsegFontSize = 30;
         if(holdvalues == false){
-            getdisplay().print(svalue1);                                     // Real value as formated string
+            printBoatValue(svalue1, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Real value as formated string
         }
         else{
-            getdisplay().print(svalue1old);                                  // Old value as formated string
+            printBoatValue(svalue1old, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Old value as formated string
         }
         if(valid1 == true){
             svalue1old = svalue1;                                       // Save the old value
@@ -138,7 +147,8 @@ public:
         // Show name
         getdisplay().setFont(&Ubuntu_Bold20pt8b);
         getdisplay().setCursor(20, 145);
-        getdisplay().print("Speed");                         // Page name
+//        getdisplay().print("Speed");                         // Page name
+        getdisplay().print(name2);                         // Page name
 
         // Show unit
         getdisplay().setFont(&Ubuntu_Bold12pt8b);
@@ -150,16 +160,15 @@ public:
             getdisplay().print(unit2old);
         }
 
-        // Setfont
-        getdisplay().setFont(&DSEG7Classic_BoldItalic30pt7b);
-        getdisplay().setCursor(180, 180);
-
         // Show bus data
+        valueX = 380;
+        valueY = 180;
+        DsegFontSize = 30;
         if(holdvalues == false){
-            getdisplay().print(svalue2);                                     // Real value as formated string
+            printBoatValue(svalue2, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Real value as formated string
         }
         else{
-            getdisplay().print(svalue2old);                                  // Old value as formated string
+            printBoatValue(svalue2old, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Old value as formated string
         }
         if(valid2 == true){
             svalue2old = svalue2;                                       // Save the old value
@@ -176,7 +185,8 @@ public:
         // Show name
         getdisplay().setFont(&Ubuntu_Bold12pt8b);
         getdisplay().setCursor(20, 220);
-        getdisplay().print("Log");                           // Page name
+//        getdisplay().print("Log");                           // Page name
+        getdisplay().print(name3);                         // Page name
 
         // Show unit
         getdisplay().setFont(&Ubuntu_Bold8pt8b);
@@ -188,16 +198,15 @@ public:
             getdisplay().print(unit3old);
         }
 
-        // Set font
-        getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-        getdisplay().setCursor(80, 270);
-
         // Show bus data
+        valueX = 190;
+        valueY = 270;
+        DsegFontSize = 20;
         if(holdvalues == false){
-            getdisplay().print(svalue3);                                     // Real value as formated string
+            printBoatValue(svalue3, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Real value as formated string
         }
         else{
-            getdisplay().print(svalue3old);                                  // Old value as formated string
+            printBoatValue(svalue3old, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Old value as formated string
         }
         if(valid3 == true){
             svalue3old = svalue3;                                       // Save the old value
@@ -214,7 +223,8 @@ public:
         // Show name
         getdisplay().setFont(&Ubuntu_Bold12pt8b);
         getdisplay().setCursor(220, 220);
-        getdisplay().print("Temp");                           // Page name
+//        getdisplay().print("Temp");                           // Page name
+        getdisplay().print(name4);                         // Page name
 
         // Show unit
         getdisplay().setFont(&Ubuntu_Bold8pt8b);
@@ -226,16 +236,15 @@ public:
             getdisplay().print(unit4old);
         }
 
-        // Set font
-        getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-        getdisplay().setCursor(280, 270);
-
         // Show bus data
+        valueX = 390;
+        valueY = 270;
+        DsegFontSize = 20;
         if(holdvalues == false){
-            getdisplay().print(svalue4);                                     // Real value as formated string
+            printBoatValue(svalue4, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Real value as formated string
         }
         else{
-            getdisplay().print(svalue4old);                                  // Old value as formated string
+            printBoatValue(svalue4old, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Old value as formated string
         }
         if(valid4 == true){
             svalue4old = svalue4;                                       // Save the old value

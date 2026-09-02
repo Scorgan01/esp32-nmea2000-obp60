@@ -103,31 +103,31 @@ class PageXTETrack : public Page
         getdisplay().setFont(&Ubuntu_Bold8pt8b);
         getdisplay().setCursor(30, 188);
         getdisplay().print("Cross-track error");
-        getdisplay().setCursor(290, 188);
+        getdisplay().setCursor(270, 188);
         getdisplay().print("Track");
         getdisplay().setCursor(25, 275);
         getdisplay().print("Distance to waypoint");
-        getdisplay().setCursor(260, 275);
+        getdisplay().setCursor(280, 275);
         getdisplay().print("Bearing");
 
         // values
         GwApi::BoatValue *bv_xte = pageData.values[0]; // XTE
         String sval_xte = formatValue(bv_xte, *commonData).svalue;
 //        printBoatValue(sval_xte, 160, 170, RIGHT, 30, smallDecimals);
-        printBoatValue(sval_xte, 20, 170, LEFT, 30, smallDecimals);
+        printBoatValue(sval_xte, 180, 170, RIGHT, 30, smallDecimals);
 
         GwApi::BoatValue *bv_cog = pageData.values[1]; // COG
         String sval_cog = formatValue(bv_cog, *commonData).svalue;
-        printBoatValue(sval_cog, 380, 170, RIGHT, 30, smallDecimals);
+        printBoatValue(sval_cog, 360, 170, RIGHT, 30, smallDecimals);
 
         GwApi::BoatValue *bv_dtw = pageData.values[2]; // DTW
         String sval_dtw = formatValue(bv_dtw, *commonData).svalue;
 //        printBoatValue(sval_dtw, 160, 257, RIGHT, 30, smallDecimals);
-        printBoatValue(sval_dtw, 40, 257, LEFT, 30, smallDecimals);
+        printBoatValue(sval_dtw, 160, 257, RIGHT, 30, smallDecimals);
 
         GwApi::BoatValue *bv_btw = pageData.values[3]; // BTW
         String sval_btw = formatValue(bv_btw, *commonData).svalue;
-        printBoatValue(sval_btw, 360, 257, RIGHT, 30, smallDecimals);
+        printBoatValue(sval_btw, 368, 257, RIGHT, 30, smallDecimals);
 
         bool valid = bv_cog->valid && bv_btw->valid;
 

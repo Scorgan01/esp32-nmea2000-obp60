@@ -5,6 +5,10 @@
 
 class PageBattery : public Page
 {
+    static constexpr int8_t LEFT = 0;
+    static constexpr int8_t CENTER = 1;
+    static constexpr int8_t RIGHT = 2;
+
     int average = 0; // Average type [0...3], 0=off, 1=10s, 2=60s, 3=300s
 
     public:
@@ -56,6 +60,7 @@ class PageBattery : public Page
         String backlightMode = config->getString(config->backlight);
         String powsensor1 = config->getString(config->usePowSensor1);
         bool simulation = config->getBool(config->useSimuData);
+        bool smallDecimals = config->getBool(config->smallDecimals);
         
         // Get voltage value
         String name1 = "VBat";                       // Value name
@@ -218,17 +223,13 @@ class PageBattery : public Page
         getdisplay().setCursor(20, 90);
         getdisplay().print(unit1);                           // Unit
 
-        // Show value
-        getdisplay().setFont(&DSEG7Classic_BoldItalic30pt7b);
-        getdisplay().setCursor(180, 90);
-
-        // Show bus data
+        // Show bus value
         if(String(powsensor1) != "off"){
-            getdisplay().print(value1,2);                    // Real value as formated string
+            svalue1 = formatValue(value1, String("formatXdr:U:V"), *commonData);
+        } else{
+            svalue1 = "---";
         }
-        else{
-            getdisplay().print("---");                       // No sensor data (sensor is off)
-        }
+        printBoatValue(svalue1, 380, 90, RIGHT, 30, smallDecimals);  // Real value as formated string
 
         // ############### Horizontal Line ################
 
@@ -247,17 +248,13 @@ class PageBattery : public Page
         getdisplay().setCursor(20, 180);
         getdisplay().print(unit2);                           // Unit
 
-        // Show value
-        getdisplay().setFont(&DSEG7Classic_BoldItalic30pt7b);
-        getdisplay().setCursor(180, 180);
-
-        // Show bus data
+        // Show bus value
         if(String(powsensor1) != "off"){
-            getdisplay().print(value2,1);                    // Real value as formated string
+            svalue2 = formatValue(value2, String("formatXdr:U:V"), *commonData);
+        } else{
+            svalue2 = "---";
         }
-        else{
-            getdisplay().print("---");                       // No sensor data (sensor is off)
-        }
+        printBoatValue(svalue2, 380, 180, RIGHT, 30, smallDecimals);  // Real value as formated string
 
         // ############### Horizontal Line ################
 
@@ -276,17 +273,13 @@ class PageBattery : public Page
         getdisplay().setCursor(20, 270);
         getdisplay().print(unit3);                           // Unit
 
-        // Show value
-        getdisplay().setFont(&DSEG7Classic_BoldItalic30pt7b);
-        getdisplay().setCursor(180, 270);
-
-        // Show bus data
+        // Show bus value
         if(String(powsensor1) != "off"){
-            getdisplay().print(value3,1);                    // Real value as formated string
+            svalue3 = formatValue(value3, String("formatXdr:U:V"), *commonData);
+        } else{
+            svalue3 = "---";
         }
-        else{
-            getdisplay().print("---");                       // No sensor data (sensor is off)
-        }
+        printBoatValue(svalue3, 380, 270, RIGHT, 30, smallDecimals);  // Real value as formated string
 
         return PAGE_UPDATE;
     };

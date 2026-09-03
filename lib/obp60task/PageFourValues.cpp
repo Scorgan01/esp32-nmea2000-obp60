@@ -5,6 +5,11 @@
 
 class PageFourValues : public Page
 {
+    private:
+        static constexpr int8_t LEFT = 0;
+        static constexpr int8_t CENTER = 1;
+        static constexpr int8_t RIGHT = 2;
+
     public:
     PageFourValues(CommonData &common){
         commonData = &common;
@@ -24,6 +29,9 @@ class PageFourValues : public Page
         GwConfigHandler *config = commonData->config;
         GwLog *logger = commonData->logger;
 
+        int valueX, valueY;
+        int DsegFontSize;
+
         // Old values for hold function
         static String svalue1old = "";
         static String unit1old = "";
@@ -35,11 +43,9 @@ class PageFourValues : public Page
         static String unit4old = "";
 
         // Get config data
-        String lengthformat = config->getString(config->lengthFormat);
-        // bool simulation = config->getBool(config->useSimuData);
         bool holdvalues = config->getBool(config->holdvalues);
         String flashLED = config->getString(config->flashLED);
-        String backlightMode = config->getString(config->backlight);
+        bool smallDecimals = config->getBool(config->smallDecimals);
         
         // Get boat values #1
         GwApi::BoatValue *bvalue1 = pageData.values[0]; // First element in list (only one value by PageOneValue)
@@ -104,7 +110,7 @@ class PageFourValues : public Page
 
         // Show unit
         getdisplay().setFont(&Ubuntu_Bold8pt8b);
-        getdisplay().setCursor(20, 65);
+        getdisplay().setCursor(20, 67);
         if(holdvalues == false){
             getdisplay().print(unit1);                       // Unit
         }
@@ -113,25 +119,26 @@ class PageFourValues : public Page
         }
 
         // Switch font if format for any values
+        valueX = 380;
         if(bvalue1->getFormat() == "formatLatitude" || bvalue1->getFormat() == "formatLongitude"){
-            getdisplay().setFont(&Ubuntu_Bold12pt8b);
-            getdisplay().setCursor(120, 55);
+            valueY = 55;
+            DsegFontSize = 12;
         }
         else if(bvalue1->getFormat() == "formatTime" || bvalue1->getFormat() == "formatDate"){
-            getdisplay().setFont(&Ubuntu_Bold12pt8b);
-            getdisplay().setCursor(150, 58);
+            valueY = 67;
+            DsegFontSize = 20;
         }
         else{
-            getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-            getdisplay().setCursor(180, 65);
+            valueY = 67;
+            DsegFontSize = 20;
         }
 
         // Show bus data
         if(holdvalues == false){
-            getdisplay().print(svalue1);                                     // Real value as formated string
+            printBoatValue(svalue1, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Real value as formated string
         }
         else{
-            getdisplay().print(svalue1old);                                  // Old value as formated string
+            printBoatValue(svalue1old, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Old value as formated string
         }
         if(valid1 == true){
             svalue1old = svalue1;                                       // Save the old value
@@ -152,7 +159,7 @@ class PageFourValues : public Page
 
         // Show unit
         getdisplay().setFont(&Ubuntu_Bold8pt8b);
-        getdisplay().setCursor(20, 133);
+        getdisplay().setCursor(20, 135);
         if(holdvalues == false){
             getdisplay().print(unit2);                       // Unit
         }
@@ -162,24 +169,24 @@ class PageFourValues : public Page
 
         // Switch font if format for any values
         if(bvalue2->getFormat() == "formatLatitude" || bvalue2->getFormat() == "formatLongitude"){
-            getdisplay().setFont(&Ubuntu_Bold12pt8b);
-            getdisplay().setCursor(120, 123);
+            valueY = 123;
+            DsegFontSize = 12;
         }
         else if(bvalue2->getFormat() == "formatTime" || bvalue2->getFormat() == "formatDate"){
-            getdisplay().setFont(&Ubuntu_Bold12pt8b);
-            getdisplay().setCursor(150, 123);
+            valueY = 135;
+            DsegFontSize = 20;
         }
         else{
-            getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-            getdisplay().setCursor(180, 133);
+            valueY = 135;
+            DsegFontSize = 20;
         }
 
         // Show bus data
         if(holdvalues == false){
-            getdisplay().print(svalue2);                                     // Real value as formated string
+            printBoatValue(svalue2, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Real value as formated string
         }
         else{
-            getdisplay().print(svalue2old);                                  // Old value as formated string
+            printBoatValue(svalue2old, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Old value as formated string
         }
         if(valid2 == true){
             svalue2old = svalue2;                                       // Save the old value
@@ -200,7 +207,7 @@ class PageFourValues : public Page
 
         // Show unit
         getdisplay().setFont(&Ubuntu_Bold8pt8b);
-        getdisplay().setCursor(20, 201);
+        getdisplay().setCursor(20, 203);
         if(holdvalues == false){
             getdisplay().print(unit3);                       // Unit
         }
@@ -210,24 +217,24 @@ class PageFourValues : public Page
 
         // Switch font if format for any values
         if(bvalue3->getFormat() == "formatLatitude" || bvalue3->getFormat() == "formatLongitude"){
-            getdisplay().setFont(&Ubuntu_Bold12pt8b);
-            getdisplay().setCursor(120, 191);
+            valueY = 191;
+            DsegFontSize = 16;
         }
         else if(bvalue3->getFormat() == "formatTime" || bvalue3->getFormat() == "formatDate"){
-            getdisplay().setFont(&Ubuntu_Bold12pt8b);
-            getdisplay().setCursor(150, 191);
+            valueY = 203;
+            DsegFontSize = 20;
         }
         else{
-            getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-            getdisplay().setCursor(180, 201);
+            valueY = 203;
+            DsegFontSize = 20;
         }
 
         // Show bus data
         if(holdvalues == false){
-            getdisplay().print(svalue3);                                     // Real value as formated string
+            printBoatValue(svalue3, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Real value as formated string
         }
         else{
-            getdisplay().print(svalue3old);                                  // Old value as formated string
+            printBoatValue(svalue3old, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Old value as formated string
         }
         if(valid3 == true){
             svalue3old = svalue3;                                       // Save the old value
@@ -248,7 +255,7 @@ class PageFourValues : public Page
 
         // Show unit
         getdisplay().setFont(&Ubuntu_Bold8pt8b);
-        getdisplay().setCursor(20, 269);
+        getdisplay().setCursor(20, 271);
         if(holdvalues == false){
             getdisplay().print(unit4);                       // Unit
         }
@@ -258,24 +265,24 @@ class PageFourValues : public Page
 
         // Switch font if format for any values
         if(bvalue4->getFormat() == "formatLatitude" || bvalue4->getFormat() == "formatLongitude"){
-            getdisplay().setFont(&Ubuntu_Bold12pt8b);
-            getdisplay().setCursor(120, 259);
+            valueY = 271;
+            DsegFontSize = 16;
         }
         else if(bvalue4->getFormat() == "formatTime" || bvalue4->getFormat() == "formatDate"){
-            getdisplay().setFont(&Ubuntu_Bold12pt8b);
-            getdisplay().setCursor(150, 259);
+            valueY = 271;
+            DsegFontSize = 20;
         }
         else{
-            getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-            getdisplay().setCursor(180, 269);
+            valueY = 271;
+            DsegFontSize = 20;
         }
 
         // Show bus data
         if(holdvalues == false){
-            getdisplay().print(svalue4);                                     // Real value as formated string
+            printBoatValue(svalue4, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Real value as formated string
         }
         else{
-            getdisplay().print(svalue4old);                                  // Old value as formated string
+            printBoatValue(svalue4old, valueX, valueY, RIGHT, DsegFontSize, smallDecimals); // Old value as formated string
         }
         if(valid4 == true){
             svalue4old = svalue4;                                       // Save the old value

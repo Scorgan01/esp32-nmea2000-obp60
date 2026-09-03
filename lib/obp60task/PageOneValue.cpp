@@ -31,8 +31,11 @@ private:
     bool useSimuData;
     bool holdValues;
     String flashLED;
-    String backlightMode;
-    String tempFormat;
+    bool smallDecimals;
+
+    static constexpr int8_t LEFT = 0;
+    static constexpr int8_t CENTER = 1;
+    static constexpr int8_t RIGHT = 2;
 
     // Old values for hold function
     String sValue1Old = "";
@@ -40,38 +43,41 @@ private:
 
     // Data buffer pointer (owned by HstryBuffers)
     RingBuffer<uint16_t>* dataHstryBuf = nullptr;
-    std::unique_ptr<Chart> dataChart; // Chart object
+    std::unique_ptr<Chart> dataChart = nullptr; // Chart object
 
     // display data value in display <mode> [FULL|HALF]
     void showData(GwApi::BoatValue* bValue1, DisplayMode mode)
     {
-        int nameXoff, nameYoff, unitXoff, unitYoff, value1Xoff, value1Yoff;
-        const GFXfont *nameFnt, *unitFnt, *valueFnt1, *valueFnt2, *valueFnt3;
+        int nameXoff, nameYoff, unitX, unitY, unitXoff, unitYoff, valueX, valueY, valueXoff, valueYoff;
+        const GFXfont *nameFnt, *unitFnt;
+        int valueFontSize1, valueFontSize2, valueFontSize3, DsegFontSize;
 
         if (mode == FULL) { // full size data display
             nameXoff = 0;
             nameYoff = 0;
             nameFnt = &Ubuntu_Bold32pt8b;
+            unitX = 380;
+            unitY = 100;
             unitXoff = 0;
             unitYoff = 0;
             unitFnt = &Ubuntu_Bold20pt8b;
-            value1Xoff = 0;
-            value1Yoff = 0;
-            valueFnt1 = &Ubuntu_Bold20pt8b;
-            valueFnt2 = &Ubuntu_Bold32pt8b;
-            valueFnt3 = &DSEG7Classic_BoldItalic60pt7b;
+            valueXoff = 0;
+            valueYoff = 0;
+            valueFontSize1 = 20;
+            valueFontSize2 = 30;
+            valueFontSize3 = 60;
         } else { // half size data and chart display
             nameXoff = -10;
             nameYoff = -34;
             nameFnt = &Ubuntu_Bold20pt8b;
-            unitXoff = -295;
-            unitYoff = 21;
+            unitX = 10;
+            unitY = 121;
             unitFnt = &Ubuntu_Bold12pt8b;
-            valueFnt1 = &Ubuntu_Bold12pt8b;
-            value1Xoff = 111;
-            value1Yoff = -119;
-            valueFnt2 = &Ubuntu_Bold20pt8b;
-            valueFnt3 = &DSEG7Classic_BoldItalic42pt7b;
+            valueXoff = 0;
+            valueYoff = -119;
+            valueFontSize1 = 12;
+            valueFontSize2 = 20;
+            valueFontSize3 = 42;
         }
 
         String name1 = xdrDelete(bValue1->getName()); // Value name
@@ -88,32 +94,38 @@ private:
         getdisplay().print(name1); // name
 
         // Show unit
+        String unitName;
         getdisplay().setFont(unitFnt);
-        getdisplay().setCursor(305 + unitXoff, 100 + unitYoff);
-
         if (holdValues) {
-            getdisplay().print(unit1Old); // name
+            unitName = unit1Old;
         } else {
-            getdisplay().print(unit1); // name
+            unitName = unit1;
         }
+        if (mode == FULL) {
+            drawTextRalign(unitX, unitY, unitName);
+        } else {
+            getdisplay().setCursor(unitX, unitY);
+            getdisplay().print(unitName);
+        }   
 
         // Switch font depending on value format and adjust position
+        valueX = 380 + valueXoff;
         if (bValue1->getFormat() == "formatLatitude" || bValue1->getFormat() == "formatLongitude") {
-            getdisplay().setFont(valueFnt1);
-            getdisplay().setCursor(20 + value1Xoff, 180 + value1Yoff);
+            valueY = 180 + valueYoff;
+            DsegFontSize = valueFontSize1;
         } else if (bValue1->getFormat() == "formatTime" || bValue1->getFormat() == "formatDate") {
-            getdisplay().setFont(valueFnt2);
-            getdisplay().setCursor(20 + value1Xoff, 200 + value1Yoff);
+            valueY = 200 + valueYoff;
+            DsegFontSize = valueFontSize2;
         } else {
-            getdisplay().setFont(valueFnt3);
-            getdisplay().setCursor(20 + value1Xoff, 240 + value1Yoff);
+            valueY = 240 + valueYoff;
+            DsegFontSize = valueFontSize3;
         }
 
         // Show bus data
         if (!holdValues || useSimuData) {
-            getdisplay().print(sValue1); // Real value as formated string
+            printBoatValue(sValue1, valueX, valueY, RIGHT, DsegFontSize, smallDecimals);
         } else {
-            getdisplay().print(sValue1Old); // Old value as formated string
+            printBoatValue(sValue1Old, valueX, valueY, RIGHT, DsegFontSize, smallDecimals);
         }
 
         if (valid1 == true) {
@@ -127,18 +139,19 @@ public:
     {
         commonData = &common;
         logger = commonData->logger;
+        GwConfigHandler *config = commonData->config;
+
         LOG_DEBUG(GwLog::LOG, "Instantiate PageOneValue");
 
         width = getdisplay().width(); // Screen width
         height = getdisplay().height(); // Screen height
+        getdisplay().setTextWrap(false);
 
         // Get config data
-        // lengthformat = commonData->config->getString(commonData->config->lengthFormat);
-        useSimuData = commonData->config->getBool(commonData->config->useSimuData);
+        useSimuData = config->getBool(config->useSimuData);
         holdValues = commonData->config->getBool(commonData->config->holdvalues);
         flashLED = commonData->config->getString(commonData->config->flashLED);
-        backlightMode = commonData->config->getString(commonData->config->backlight);
-        tempFormat = commonData->config->getString(commonData->config->tempFormat); // [K|°C|°F]
+        smallDecimals = commonData->config->getBool(commonData->config->smallDecimals);
     }
 
     virtual void setupKeys()
@@ -233,9 +246,9 @@ public:
 
             if (dataHstryBuf) {
                 dataChart.reset(new Chart(*dataHstryBuf, *commonData, useSimuData));
-                LOG_DEBUG(GwLog::DEBUG, "PageOneValue: Created chart objects for %s", bValName1);
+                LOG_DEBUG(GwLog::DEBUG, "PageOneValue: Created chart object for %s", bValName1);
             } else {
-                LOG_DEBUG(GwLog::DEBUG, "PageOneValue: No chart objects available for %s", bValName1);
+                LOG_DEBUG(GwLog::DEBUG, "PageOneValue: No chart object available for %s", bValName1);
             }
         }
 
@@ -249,12 +262,13 @@ public:
         // Get boat value for page
         GwApi::BoatValue* bValue1 = pageData.values[0]; // Page boat data element
 
+#ifdef BOARD_OBP60S3
         // Optical warning by limit violation (unused)
         if (String(flashLED) == "Limit Violation") {
             setBlinkingLED(false);
             setFlashLED(false);
         }
-
+#endif
         if (bValue1 == NULL)
             return PAGE_OK; // no data, no page to display
 
@@ -265,11 +279,13 @@ public:
 
         displaySetPartialWindow(0, 0, width, height); // Set partial update
 
-        if (!dataChart->isValid()) {
-            dataChart->init(); // try late initialization if chart object could not be properly initialized earlier due to missing boat data
+        if (dataChart) { // Check only if dataChart object exists at all
+            if (!dataChart->isValid()) {
+                dataChart->init(); // try late initialization if chart object could not be properly initialized earlier due to missing boat data
+            }
         }
 
-        if (pageMode == VALUE || dataHstryBuf == nullptr) {
+        if (pageMode == VALUE || dataChart == nullptr) {
             // show only data value; ignore other pageMode options if no chart supported boat data history buffer is available
             showData(bValue1, FULL);
 

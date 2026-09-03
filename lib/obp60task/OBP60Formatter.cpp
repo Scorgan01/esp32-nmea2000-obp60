@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include "GwApi.h"
 #include "Pagedata.h"
+#include "OBPDataOperations.h"
 
 // ToDo
 // simulation data
@@ -49,15 +50,10 @@ String formatLongitude(double lon) {
     return String(degree, 0) + "\x90 " + String(minute, 4) + "' " + ((lon > 0) ? "E" : "W");
 }
 
-// Convert and format boat value from SI to user defined format (definition for compatibility purposes)
-FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata) {
-
-    return formatValue(value, commondata, false); // call <formatValue> with standard handling of user setting for simulation data
-}
-
 // Convert and format boat value from SI to user defined format
-// generate random simulation data; can be deselected to use conversion+formatting function even in simulation mode
-FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool ignoreSimuDataSetting){
+// generates random simulation data; can be deselected to use conversion+formatting function even in simulation mode
+// String setPrecision - overrides precision setting from config; if not set, use config setting
+FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool ignoreSimuDataSetting, String setPrecision) {
     GwLog *logger = commondata.logger;
     FormattedData result;
     static int dayoffset = 0;
@@ -75,12 +71,13 @@ FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool 
     String tempFormat = commondata.config->getString(commondata.config->tempFormat);            // [K|°C|°F]
     String dateFormat = commondata.config->getString(commondata.config->dateFormat);            // [DE|GB|US]
     String precision = commondata.config->getString(commondata.config->valueprecision);         // [1|2]
+    bool usesimudata = commondata.config->getBool(commondata.config->useSimuData);              // [on|off]
 
-    bool usesimudata;
+    if (setPrecision == "1" || setPrecision == "2") {
+        precision = setPrecision; // override precision setting from config
+    }
     if (ignoreSimuDataSetting){
         usesimudata = false; // ignore user setting for simulation data; we want to format the boat value passed to this function
-    } else {
-        usesimudata = commondata.config->getBool(commondata.config->useSimuData);              // [on|off]
     }
 
     // If boat value not valid
@@ -95,21 +92,20 @@ FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool 
     double limit_dec_10;
     double limit_dec_100;
     if (precision == "1") {
-	//
-	//All values are displayed using a DSEG7* font. In this font, ' ' is a very short space, and '.' takes up no space at all. 
-	//For a space that is as long as a number, '!' is used. For details see  https://www.keshikan.net/fonts-e.html
-	//
-        fmt_dec_1 = "!%1.1f";  //insert a blank digit and then display a two-digit number
-        fmt_dec_10 = "!%2.0f"; //insert a blank digit and then display a two-digit number
-        fmt_dec_100 = "%3.0f"; //dispay a three digit number
-	limit_dec_10=9.95; // use fmt_dec_1 below this number to avoid formatting 9.96 as 10.0 instead of 10
-	limit_dec_100=99.5; 
+    	//All values are displayed using a DSEG7* font. In this font, ' ' is a very short space, and '.' takes up no space at all. 
+	    //For a space that is as long as a number, '!' is used. For details see  https://www.keshikan.net/fonts-e.html
+
+        fmt_dec_1 = "!%1.1f";  // blank digit + 2 digit number, incl. 1 decimal
+        fmt_dec_10 = "%3.1f"; // 3 digit number, incl. 1 decimal
+        fmt_dec_100 = "%3.0f"; // 3 digit number, no decimal
+        limit_dec_10=9.95; // use fmt_dec_1 below this number to avoid formatting 9.96 as 10.0 instead of 10
+        limit_dec_100=99.5; 
     } else {
         fmt_dec_1 = "%3.2f";
         fmt_dec_10 = "%3.1f";
         fmt_dec_100 = "%3.0f";
-	limit_dec_10=9.995;
-	limit_dec_100=99.95;
+        limit_dec_10=9.995;
+        limit_dec_100=99.95;
     }
 
 //    LOG_DEBUG(GwLog::DEBUG,"formatValue init: getFormat: %s date->value: %f time->value: %f", value->getFormat(), commondata.date->value, commondata.time->value);
@@ -216,10 +212,10 @@ FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool 
             rawvalue = value->value;
         }
         else {
-            course = M_PI_2 + float(random(-17, 17) / 100.0); // create random course/wind values with 90° +/- 10°
+            course = M_PI_2 + float(random(-26, 26) / 100.0); // create random course/wind values with 90° +/- 15°
             rawvalue = course;
         }
-        course = course * RAD_TO_DEG;      // Unit conversion form rad to deg
+        course = WindUtils::to360(course * RAD_TO_DEG);      // Unit conversion form rad to deg
 
         // Format 3 numbers with prefix zero
         snprintf(buffer,bsize,"%03.0f",course);
@@ -906,6 +902,40 @@ FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool 
     result.value = rawvalue;        // Return value is only necessary in case of simulation of graphic pointer
     result.svalue = String(buffer);
     return result;
+}
+
+// Convert and format boat value from SI to user defined format
+FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata) {
+
+    return formatValue(value, commondata, false, String("-1")); // call <formatValue> with standard setting for simulation data and precision setting from config
+}
+
+// Convert and format boat value from SI to user defined format with simulation data setting and precision setting from config
+FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool ignoreSimuDataSetting) {
+
+    return formatValue(value, commondata, ignoreSimuDataSetting, String("-1"));
+}
+
+// Convert and format boat value from SI to user defined format with standard setting for simulation data and specified precision
+FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, String setPrecision) {
+
+    return formatValue(value, commondata, false, setPrecision);
+}
+
+// Format double value from SI to user defined format and convert to string user defined precision setting
+String formatValue(const double &value, const String &vFormat, CommonData &commondata)
+{
+    GwApi::BoatValue tmpBVal("dummy"); // temporary boat value for string formatter
+    String sVal;
+
+    tmpBVal.setFormat(vFormat);
+    tmpBVal.valid = true;
+    tmpBVal.value = value;
+    sVal = formatValue(&tmpBVal, commondata, false, String("-1")).svalue; // Formatted value as string including unit conversion and switching decimal places
+    if (sVal.length() > 0 && sVal[0] == '!') {
+        sVal = sVal.substring(1); // cut leading "!" created at OBPFormatter; doesn't work for other fonts than 7SEG
+    }
+    return sVal;
 }
 
 // Helper method for conversion of any data value from SI to user defined format

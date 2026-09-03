@@ -5,11 +5,15 @@
 
 class PageVoltage : public Page
 {
-bool init = false;                  // Marker for init done
-uint8_t average = 0;                // Average type [0...3], 0=off, 1=10s, 2=60s, 3=300s
-bool trend = true;                  // Trend indicator [0|1], 0=off, 1=on
-double raw = 0;
-char mode = 'D';                    // display mode (A)nalog | (D)igital
+    bool init = false;                  // Marker for init done
+    uint8_t average = 0;                // Average type [0...3], 0=off, 1=10s, 2=60s, 3=300s
+    bool trend = true;                  // Trend indicator [0|1], 0=off, 1=on
+    double raw = 0;
+    char mode = 'D';                    // display mode (A)nalog | (D)igital
+
+    static constexpr int8_t LEFT = 0;
+    static constexpr int8_t CENTER = 1;
+    static constexpr int8_t RIGHT = 2;
 
 public:
     PageVoltage(CommonData &common){
@@ -110,8 +114,10 @@ public:
         String batVoltage = config->getString(config->batteryVoltage);
         String batType = config->getString(config->batteryType);
         String backlightMode = config->getString(config->backlight);
+        bool smallDecimals = config->getBool(config->smallDecimals);
 
         double value1 = 0;
+        String svalue = "---";
         double valueTrend = 0;  // Average over 10 values
         
         // Get voltage value
@@ -234,36 +240,12 @@ public:
             printAvg(average, 320, 84, true);
 
             // Reading bus data or using simulation data
-            getdisplay().setFont(&DSEG7Classic_BoldItalic60pt7b);
-            getdisplay().setCursor(20, 240);
-            if(simulation == true){
-                if(batVoltage == "12V"){
-                    value1 = 12.0;
-                }
-                if(batVoltage == "24V"){
-                    value1 = 24.0;
-                }
-                value1 += float(random(0, 5)) / 10;         // Simulation data
-                getdisplay().print(value1,1);
+            if(valid1 == true || holdvalues == true){
+                svalue = formatValue(value1, String("formatXdr:U:V"), *commonData);
+            } else {
+                svalue = "---"; // Missing bus data
             }
-            else{
-                // Check for valid real data, display also if hold values activated
-                if(valid1 == true || holdvalues == true){
-                    // Resolution switching
-                    if(value1 < 10){
-                        getdisplay().print(value1,2);
-                    }
-                    if(value1 >= 10 && value1 < 100){
-                        getdisplay().print(value1,1);
-                    }
-                    if(value1 >= 100){
-                        getdisplay().print(value1,0);
-                    }
-                }
-                else{
-                getdisplay().print("---");                       // Missing bus data
-                }
-            }
+            printBoatValue(svalue, 300, 240, RIGHT, 60, smallDecimals);
 
             // Show trend indicator
             if(trend == true){

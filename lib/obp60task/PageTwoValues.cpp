@@ -34,8 +34,11 @@ private:
     bool useSimuData;
     bool holdValues;
     String flashLED;
-    String backlightMode;
-    String tempFormat;
+    bool smallDecimals;
+
+    static constexpr int8_t LEFT = 0;
+    static constexpr int8_t CENTER = 1;
+    static constexpr int8_t RIGHT = 2;
 
     // Data buffer pointer (owned by HstryBuffers)
     static constexpr int NUMVALUES = 2; // two data values in this page
@@ -49,8 +52,10 @@ private:
     // display data values in display <mode> [FULL|HALF]
     void showData(const std::vector<GwApi::BoatValue*>& bValue, DisplayMode mode)
     {
-        getdisplay().setTextColor(commonData->fgcolor);
+        int valueX, valueY;
+        int DsegFontSize;
 
+        getdisplay().setTextColor(commonData->fgcolor);
         int numValues = bValue.size(); // do we have to handle 1 or 2 values?
 
         for (int i = 0; i < numValues; i++) {
@@ -78,22 +83,23 @@ private:
             }
 
             // Switch font depending on value format and adjust position
+            valueX = 380;
             if (bValue[i]->getFormat() == "formatLatitude" || bValue[i]->getFormat() == "formatLongitude") {
-                getdisplay().setFont(&Ubuntu_Bold20pt8b);
-                getdisplay().setCursor(50, 125 + yOffset);
+                valueY = 125 + yOffset;
+                DsegFontSize = 20;
             } else if (bValue[i]->getFormat() == "formatTime" || bValue[i]->getFormat() == "formatDate") {
-                getdisplay().setFont(&Ubuntu_Bold20pt8b);
-                getdisplay().setCursor(170, 105 + yOffset);
+                valueY = 105 + yOffset;
+                DsegFontSize = 20;
             } else { // Default font for other formats
-                getdisplay().setFont(&DSEG7Classic_BoldItalic42pt7b);
-                getdisplay().setCursor(180, 125 + yOffset);
+                valueY = 125 + yOffset;
+                DsegFontSize = 42;
             }
 
             // Show bus data
             if (!holdValues || useSimuData) {
-                getdisplay().print(sValue); // Real value as formated string
+                printBoatValue(sValue, valueX, valueY, RIGHT, DsegFontSize, smallDecimals);
             } else {
-                getdisplay().print(sValueOld[i]); // Old value as formated string
+                printBoatValue(sValueOld[i], valueX, valueY, RIGHT, DsegFontSize, smallDecimals);
             }
 
             if (valid == true) {
@@ -116,14 +122,13 @@ public:
 
         width = getdisplay().width(); // Screen width
         height = getdisplay().height(); // Screen height
+        getdisplay().setTextWrap(false);
 
         // Get config data
-        // lengthformat = commonData->config->getString(commonData->config->lengthFormat);
         useSimuData = commonData->config->getBool(commonData->config->useSimuData);
         holdValues = commonData->config->getBool(commonData->config->holdvalues);
         flashLED = commonData->config->getString(commonData->config->flashLED);
-        backlightMode = commonData->config->getString(commonData->config->backlight);
-        tempFormat = commonData->config->getString(commonData->config->tempFormat); // [K|°C|°F]
+        smallDecimals = commonData->config->getBool(commonData->config->smallDecimals);
     }
 
     virtual void setupKeys()
@@ -255,12 +260,13 @@ public:
         bValue.push_back(pageData.values[0]); // Page boat data element 1
         bValue.push_back(pageData.values[1]); // Page boat data element 2
 
+#ifdef BOARD_OBP60S3
         // Optical warning by limit violation (unused)
         if (String(flashLED) == "Limit Violation") {
             setBlinkingLED(false);
             setFlashLED(false);
         }
-
+#endif
         if (bValue[0] == NULL && bValue[1] == NULL)
             return PAGE_OK; // no data, no page to display
 
@@ -273,12 +279,14 @@ public:
         displaySetPartialWindow(0, 0, width, height); // Set partial update
 
         for (int i = 0; i < NUMVALUES; i++) {
-            if (!dataChart[i]->isValid()) {
-                dataChart[i]->init(); // try late initialization if chart object could not be properly initialized earlier due to missing boat data
+            if (dataChart[i]) { // Check only if dataChart object exists at all
+                if (!dataChart[i]->isValid()) {
+                    dataChart[i]->init(); // try late initialization if chart object could not be properly initialized earlier due to missing boat data
+                }
             }
         }
-        
-        if (pageMode == VALUES || (dataHstryBuf[0] == nullptr && dataHstryBuf[1] == nullptr)) {
+
+        if (pageMode == VALUES || (dataChart[0] == nullptr && dataChart[1] == nullptr)) {
             // show only data value; ignore other pageMode options if no chart supported boat data history buffer is available
             showData(bValue, FULL);
 

@@ -5,6 +5,10 @@
 
 class PageRollPitch : public Page
 {
+    static constexpr int8_t LEFT = 0;
+    static constexpr int8_t CENTER = 1;
+    static constexpr int8_t RIGHT = 2;
+
 public:
     PageRollPitch(CommonData &common){
         commonData = &common;
@@ -44,12 +48,15 @@ public:
         double rolloffset = roffset.toFloat()/360*(2*M_PI);
         String poffset = config->getString(config->pitchOffset);
         double pitchoffset = poffset.toFloat()/360*(2*M_PI);
+        bool smallDecimals = config->getBool(config->smallDecimals);
 
         // Get boat values for roll
         GwApi::BoatValue *bvalue1 = pageData.values[0]; // First element in list (xdrRoll)
         String name1 = xdrDelete(bvalue1->getName());   // Value name
-        name1 = name1.substring(0, 6);                  // String length limit for value name
+        name1 = name1.substring(0, 5);                  // String length limit for value name
         bool valid1 = bvalue1->valid;                   // Valid information
+        String unit1 = formatValue(bvalue1, *commonData).unit; // Unit of value
+        unit1 = unit1.substring(0, 4);                  // String length limit for value unit
         if(valid1 == true){
             value1 = bvalue1->value + rolloffset;       // Raw value for pitch
         }
@@ -73,8 +80,10 @@ public:
         // Get boat values for pitch
         GwApi::BoatValue *bvalue2 = pageData.values[1]; // Second element in list (xdrPitch)
         String name2 = xdrDelete(bvalue2->getName());   // Value name
-        name2 = name2.substring(0, 6);                  // String length limit for value name
+        name2 = name2.substring(0, 5);                  // String length limit for value name
         bool valid2 = bvalue2->valid;                   // Valid information
+        String unit2 = formatValue(bvalue2, *commonData).unit; // Unit of value
+        unit2 = unit2.substring(0, 4);                  // String length limit for value unit
         if(valid2 == true){
             value2 = bvalue2->value + pitchoffset;      // Raw value for pitch
         }
@@ -86,7 +95,7 @@ public:
                 value2 = 0;
             }
         }
-        if(value2/(2*PI)*360 > -10 && value2/(2*M_PI)*360 < 10){
+        if(value2/(2*M_PI)*360 > -10 && value2/(2*M_PI)*360 < 10){
             svalue2 = String(value2/(2*M_PI)*360,1);      // Convert raw value to string
         }
         else{
@@ -121,53 +130,44 @@ public:
         getdisplay().setTextColor(commonData->fgcolor);
 
         // Show roll limit
-        getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-        getdisplay().setCursor(10, 65);
-        getdisplay().print(rolllimit);                   // Value
-        //getdisplay().print(svalue1);                   // Value
+        printBoatValue(String(rolllimit), 10, 65, LEFT, 20, smallDecimals);  // Value
 
         getdisplay().setFont(&Ubuntu_Bold12pt8b);
         getdisplay().setCursor(10, 95);
         getdisplay().print("Limit");                     // Name
         getdisplay().setFont(&Ubuntu_Bold8pt8b);
         getdisplay().setCursor(10, 115);
-        getdisplay().print("DEG");
+        getdisplay().print("Deg");
 
         // Horizintal separator left
         getdisplay().fillRect(0, 149, 60, 3, commonData->fgcolor);
 
         // Show roll value
-        getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-        getdisplay().setCursor(10, 270);
-        if(holdvalues == false) getdisplay().print(svalue1); // Value
-        else getdisplay().print(svalue1old);
+        if(holdvalues == false) printBoatValue(svalue1, 101, 270, RIGHT, 20, smallDecimals); // Value
+        else printBoatValue(svalue1old, 101, 270, RIGHT, 20, smallDecimals);
         getdisplay().setFont(&Ubuntu_Bold12pt8b);
         getdisplay().setCursor(10, 220);
         getdisplay().print(name1);                           // Name
         getdisplay().setFont(&Ubuntu_Bold8pt8b);
         getdisplay().setCursor(10, 190);
-        getdisplay().print("Deg");
+        getdisplay().print(unit1);                           // Unit
 
         // Horizintal separator right
         getdisplay().fillRect(340, 149, 80, 3, commonData->fgcolor);
 
         // Show pitch value
-        getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-        getdisplay().setCursor(295, 270);
-        if(holdvalues == false) getdisplay().print(svalue2); // Value
-        else getdisplay().print(svalue2old);
+        if(holdvalues == false) printBoatValue(svalue2, 395, 270, RIGHT, 20, smallDecimals); // Value
+        else printBoatValue(svalue2old, 395, 270, RIGHT, 20, smallDecimals);
         getdisplay().setFont(&Ubuntu_Bold12pt8b);
-        getdisplay().setCursor(335, 220);
-        getdisplay().print(name2);                           // Name
+        drawTextRalign(395, 220, name2);                     // Name
         getdisplay().setFont(&Ubuntu_Bold8pt8b);
         getdisplay().setCursor(335, 190);
-        getdisplay().print("Deg");
+        getdisplay().print(unit2);                          // Unit
 
 //*******************************************************************************************
 
         // Draw instrument
         int rInstrument = 100;     // Radius of instrument
-        float pi = 3.141592;
 
         getdisplay().fillCircle(200, 150, rInstrument + 10, commonData->fgcolor);    // Outer circle
         getdisplay().fillCircle(200, 150, rInstrument + 7, commonData->bgcolor);     // Outer circle
@@ -264,11 +264,11 @@ public:
         int y0 = 150;
         int x1 = x0 + 50*cos(value1);
         int y1 = y0 + 50*sin(value1);
-        int x2 = x0 + 50*cos(value1 - pi/2);
-        int y2 = y0 + 50*sin(value1 - pi/2);
+        int x2 = x0 + 50*cos(value1 - M_PI/2);
+        int y2 = y0 + 50*sin(value1 - M_PI/2);
         getdisplay().fillTriangle(x0, y0, x1, y1, x2, y2, commonData->bgcolor);          // Clear half top side of boat circle (right triangle)
-        x1 = x0 + 50*cos(value1 + pi);
-        y1 = y0 + 50*sin(value1 + pi);
+        x1 = x0 + 50*cos(value1 + M_PI);
+        y1 = y0 + 50*sin(value1 + M_PI);
         getdisplay().fillTriangle(x0, y0, x1, y1, x2, y2, commonData->bgcolor);          // Clear half top side of boat circle (left triangle)
         getdisplay().fillRect(150, 160, 100, 4, commonData->fgcolor);                 // Water line
 

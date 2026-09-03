@@ -5,6 +5,10 @@
 
 class PageBattery2 : public Page
 {
+static constexpr int8_t LEFT = 0;
+static constexpr int8_t CENTER = 1;
+static constexpr int8_t RIGHT = 2;
+
 bool init = false;                  // Marker for init done
 int average = 0;                    // Average type [0...3], 0=off, 1=10s, 2=60s, 3=300s
 bool trend = true;                  // Trend indicator [0|1], 0=off, 1=on
@@ -65,6 +69,7 @@ public:
         String batType = config->getString(config->batteryType);
         String backlightMode = config->getString(config->backlight);
         String powerSensor = config->getString(config->usePowSensor1);
+        bool smallDecimals = config->getBool(config->smallDecimals);
 
         double value1 = 0;  // Battery voltage
         double value2 = 0;  // Battery current
@@ -198,20 +203,16 @@ public:
         getdisplay().print(batType);
 
         // Show voltage type
-        getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-        getdisplay().setCursor(10, 140);
         int bvoltage = 0;
         if(String(batVoltage) == "12V") bvoltage = 12;
         else bvoltage = 24;
-        getdisplay().print(bvoltage);
+        printBoatValue(String(bvoltage), 10, 140, LEFT, 20, smallDecimals);
         getdisplay().setFont(&Ubuntu_Bold16pt8b);
         getdisplay().print("V");
 
         // Show battery capacity
-        getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-        getdisplay().setCursor(10, 200);
-        if(batCapacity <= 999) getdisplay().print(batCapacity, 0);
-        if(batCapacity > 999) getdisplay().print(float(batCapacity/1000.0), 1);
+        String svalueCapacity = (batCapacity <= 999) ? String(batCapacity) : String(float(batCapacity/1000.0), 1);
+        printBoatValue(svalueCapacity, 10, 200, LEFT, 20, smallDecimals);
         getdisplay().setFont(&Ubuntu_Bold16pt8b);
         if(batCapacity <= 999) getdisplay().print("Ah");
         if(batCapacity > 999) getdisplay().print("kAh");
@@ -248,20 +249,19 @@ public:
         } 
 
         // Show fill level in percent
-        getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-        getdisplay().setCursor(150, 200);
-        getdisplay().print(batPercentage);
+        printBoatValue(String(batPercentage), 150, 200, LEFT, 20, smallDecimals);
         getdisplay().setFont(&Ubuntu_Bold16pt8b);
         getdisplay().print("%");
 
         // Show time to full discharge
-        getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-        getdisplay().setCursor(150, 260);
+        String svalueRange;
         if((powerSensor == "INA219" || powerSensor == "INA226") && simulation == false){
-            if(batRange < 9.9) getdisplay().print(batRange, 1);
-            else getdisplay().print(batRange, 0);
+            svalueRange = (batRange < 9.9) ? String(batRange, 1) : String(batRange, 0);
         }
-        else  getdisplay().print("--");
+        else{
+            svalueRange = "--";
+        }
+        printBoatValue(svalueRange, 150, 260, LEFT, 20, smallDecimals);
         getdisplay().setFont(&Ubuntu_Bold16pt8b);
         getdisplay().print("h");
 
@@ -282,54 +282,38 @@ public:
         getdisplay().print("Sensor Modul");
 
         // Reading bus data or using simulation data
-        getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-        getdisplay().setCursor(260, 140);
-        if(simulation == true){
-            if(batVoltage == "12V"){
-                value1 = 12.0;
-            }
-            if(batVoltage == "24V"){
-                value1 = 24.0;
-            }
-            value1 += float(random(0, 5)) / 10;         // Simulation data
-            getdisplay().print(value1,1);
+        String svalue1;
+        // Check for valid real data, display also if hold values activated
+        if(valid1 == true || holdvalues == true){
+            svalue1 = formatValue(value1, String("formatXdr:U:V"), *commonData);
+        } else {
+            svalue1 = "---"; // Missing bus data
         }
-        else{
-            // Check for valid real data, display also if hold values activated
-            if(valid1 == true || holdvalues == true){
-                // Resolution switching
-                if(value1 <= 9.9) getdisplay().print(value1, 2);
-                if(value1 > 9.9 && value1 <= 99.9)getdisplay().print(value1, 1);
-                if(value1 > 99.9) getdisplay().print(value1, 0);
-            }
-            else{
-            getdisplay().print("---");                       // Missing bus data
-            }
-        }
+        printBoatValue(svalue1, 355, 140, RIGHT, 20, smallDecimals);
         getdisplay().setFont(&Ubuntu_Bold16pt8b);
         getdisplay().print("V");
 
         // Show actual current in A
-        getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-        getdisplay().setCursor(260, 200);
+        String svalue2;
         if((powerSensor == "INA219" || powerSensor == "INA226") && simulation == false){
-            if(value2 <= 9.9) getdisplay().print(value2, 2);
-            if(value2 > 9.9 && value2 <= 99.9)getdisplay().print(value2, 1);
-            if(value2 > 99.9) getdisplay().print(value2, 0);
+            svalue2 = formatValue(value2, String("formatXdr:I:A"), *commonData);
         }
-        else  getdisplay().print("---");
+        else{
+            svalue2 = "---";
+        }
+        printBoatValue(svalue2, 355, 200, RIGHT, 20, smallDecimals);
         getdisplay().setFont(&Ubuntu_Bold16pt8b);
         getdisplay().print("A");
 
         // Show actual consumption in W
-        getdisplay().setFont(&DSEG7Classic_BoldItalic20pt7b);
-        getdisplay().setCursor(260, 260);
+        String svalue3;
         if((powerSensor == "INA219" || powerSensor == "INA226") && simulation == false){
-            if(value3 <= 9.9) getdisplay().print(value3, 2);
-            if(value3 > 9.9 && value3 <= 99.9)getdisplay().print(value3, 1);
-            if(value3 > 99.9) getdisplay().print(value3, 0);
+            svalue3 = formatValue(value3, String("formatXdr:G:"), *commonData);
         }
-        else  getdisplay().print("---");
+        else{
+            svalue3 = "---";
+        }
+        printBoatValue(svalue3, 355, 260, RIGHT, 20, smallDecimals);
         getdisplay().setFont(&Ubuntu_Bold16pt8b);
         getdisplay().print("W");
 

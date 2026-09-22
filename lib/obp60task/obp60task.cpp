@@ -12,6 +12,7 @@
 #include "OBP60Extensions.h"            // Functions lib for extension board
 #include "OBP60Keypad.h"                // Functions for keypad
 #include "OBPDataOperations.h"          // Functions lib for data operations such as true wind calculation
+#include "OBPAlarms.h"                     // Functions lib for boat data alarm handling
 
 #ifdef BOARD_OBP40S3
 #include "driver/rtc_io.h"              // Needs for weakup from deep sleep
@@ -205,6 +206,8 @@ void registerAllPages(PageList &list){
     extern PageDescription registerPageSystem;
     //we add the variable to our list
     list.add(&registerPageSystem);
+    extern PageDescription registerPageAlarm;
+    list.add(&registerPageAlarm);
     extern PageDescription registerPageOneValue;
     list.add(&registerPageOneValue);
     extern PageDescription registerPageTwoValues;
@@ -432,7 +435,7 @@ void OBP60Task(GwApi *api){
     
     // Init pages
     int numPages=1;
-    PageStruct pages[MAX_PAGE_NUMBER];
+    PageStruct pages[MAX_PAGE_NUMBER + 1];
     // Set start page
     int pageNumber = int(api->getConfig()->getConfigItem(api->getConfig()->startPage,true)->asInt()) - 1;
 
@@ -461,13 +464,15 @@ void OBP60Task(GwApi *api){
     HstryBuffers hstryBufferList(1920, &boatValues, logger);  // Create empty list of boat data history buffers (1.920 values = seconds = 32 min.)
     WindUtils trueWind(&boatValues, logger);  // Create helper object for true wind calculation
     CalibrationData calibrationDataList(logger); // all boat data types which are supposed to be calibrated
+    Alarms boatAlarms(boatValues, &commonData, logger); // List of all user defined alarm settings
 
     // Read user settings from config file
     bool calcTrueWnds = api->getConfig()->getBool(api->getConfig()->calcTrueWnds, false);
     bool smoothCharts = api->getConfig()->getBool(api->getConfig()->smoothCharts, false);
     bool useSimuData = api->getConfig()->getBool(api->getConfig()->useSimuData, false);
-    // Read user calibration data settings from config file
+    // Read user settings for calibration and alarms from config file
     calibrationDataList.readConfig(config);
+    boatAlarms.readConfig(config);
 
     //fill the page data from config
     numPages=config->getInt(config->visiblePages,1);
@@ -521,8 +526,10 @@ void OBP60Task(GwApi *api){
        pages[i].parameters.hstryBuffers = &hstryBufferList;
     }
 
-    // add out of band system page (always available)
+    // add out of band pages "system" and "alarm" (always available)
     Page *syspage = allPages.pages[0]->creator(commonData);
+    Page *alarmPage = allPages.pages[numPages]->creator(commonData);
+    commonData.alarms = &boatAlarms;
 
     // Display screenshot handler for HTTP request
     // http://192.168.15.1/api/user/OBP60Task/screenshot
@@ -597,12 +604,16 @@ void OBP60Task(GwApi *api){
 
     pages[pageNumber].page->setupKeys(); // Initialize keys for first page
 
+    bool systemPage = false;
+    bool systemPageNew = false;
+    bool callAlarmPage = false;
+    bool alarmPageNew = true;
+    commonData.alarm.active = false;
+    Page *currentPage;
+
     // Main loop runs with 100ms
     //####################################################################################
 
-    bool systemPage = false;
-    bool systemPageNew = false;
-    Page *currentPage;
     while (true){
         delay(100);     // Delay 100ms (loop time)
         bool keypressed = false;
@@ -652,6 +663,11 @@ void OBP60Task(GwApi *api){
                 LOG_DEBUG(GwLog::LOG,"new key from keyboard %d",keyboardMessage);
                 keypressed = true;
 
+/*                if (callAlarmPage) {
+                    alarmPage->setupKeys();
+                    alarmPageNew = true;                    
+                }
+                else if (keyboardMessage == 12 and !systemPage) { */
                 if (keyboardMessage == 12 and !systemPage) {
                     LOG_DEBUG(GwLog::LOG, "Calling system page");
                     systemPage = true; // System page is out of band
@@ -668,6 +684,10 @@ void OBP60Task(GwApi *api){
                         keyboardMessage = 0;
                     }
                 }
+
+/*                if (callAlarmPage) {
+                    keyboardMessage = alarmPage->handleKey(keyboardMessage);
+                } else if (systemPage) { */
                 if (systemPage) {
                     keyboardMessage = syspage->handleKey(keyboardMessage);
                 } else if (currentPage) {
@@ -709,8 +729,7 @@ void OBP60Task(GwApi *api){
                         }
                         commonData.data.actpage = pageNumber + 1;
                         commonData.data.maxpage = numPages;
-                    }
-                  
+                    }                  
                     // #9 or #10 Refresh display after a new page after 4s waiting time and if refresh is disabled
                     if(refreshmode == true && (keyboardMessage == 9 || keyboardMessage == 10 || keyboardMessage == 4 || keyboardMessage == 3)){
                         starttime4 = millis();
@@ -849,12 +868,16 @@ void OBP60Task(GwApi *api){
                 api->getBoatDataValues(boatValues.numValues,boatValues.allBoatValues);
                 api->getStatus(commonData.status);
 
-                // ulong startHandl = millis();
+                ulong timerStart = micros();
                 trueWind.handleWinds(calcTrueWnds); // calculate true wind data from apparent wind values
                 trueWind.setMaxWs(); // maintain MaxTWS value in any case; invalid TWS value is considered automatically; MaxAWS is provided by core gateway if AWS is available
                 calibrationDataList.handleCalibration(&boatValues); // Process calibration for all boat data in <calibrationDataList>
                 hstryBufferList.handleHstryBufs(useSimuData, commonData); // Handle history buffers for certain boat data for charts and other usage
-                // LOG_DEBUG(GwLog::DEBUG, "obp60task: data handling: %d ms", millis() - startHandl);
+                boatAlarms.checkAlarms(); // Test alarm conditions for all defined boat data alarms
+//                callAlarmPage = boatAlarms.countAlarms() > 0;
+                commonData.alarm.active = boatAlarms.countAlarms() > 0;
+                LOG_DEBUG(GwLog::DEBUG, "obp60task: alarm count: %d", boatAlarms.countAlarms());
+                LOG_DEBUG(GwLog::DEBUG, "obp60task: data + alarm handling: %.2f ms", (micros() - timerStart) / 1000.0);
 
                 // Clear display
                 // getdisplay().fillRect(0, 0, getdisplay().width(), getdisplay().height(), commonData.bgcolor);
@@ -867,6 +890,17 @@ void OBP60Task(GwApi *api){
                 }
 
                 // Call the particular page
+/*                if (callAlarmPage) {
+                    displayFooter(commonData);
+                    PageData sysparams; // empty
+                    sysparams.api = api;
+                    if (alarmPageNew) {
+                        alarmPage->displayNew(sysparams);
+                        alarmPageNew = false;
+                    }
+                    alarmPage->displayPage(sysparams);
+                }
+                else if (systemPage) { */
                 if (systemPage) {
                     displayFooter(commonData);
                     PageData sysparams; // empty
@@ -889,12 +923,12 @@ void OBP60Task(GwApi *api){
                         getdisplay().print("Here be dragons!");
                         displayNextPage(); // Partial update (fast)
                     }
-                    else{
-                        if (pageChanged){
-			    if (lastPage != -1){ // skip cleanup if we are during startup, and no page has been displayed yet. 
+                    else {
+                        if (pageChanged) {
+            			    if (lastPage != -1) { // skip cleanup if we are during startup, and no page has been displayed yet. 
                                 pages[lastPage].page->leavePage(pages[lastPage].parameters); // call page cleanup code
                                 if (hasFRAM) fram.write(FRAM_PAGE_NO, pageNumber); // remember new page for device restart
-			    }
+			                }
                             currentPage->setupKeys();
                             currentPage->displayNew(pages[pageNumber].parameters);
                             lastPage = pageNumber;

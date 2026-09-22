@@ -1455,10 +1455,11 @@
         "label": "Buzzer Error",
         "type": "boolean",
         "default": "false",
-        "description": "Sound on error [on|off]",
-        "category": "OBP40 Buzzer",
+        "description": "Alarm on error [on|off]",
+        "category": "OBP40 Alarm",
         "capabilities": {
-            "obp40": "false"
+            "obp40": "true",
+            "obp60": "true"
         }
     },
     {
@@ -1466,8 +1467,8 @@
         "label": "Buzzer GPS Fix",
         "type": "boolean",
         "default": "false",
-        "description": "Sound on missing or lost GPS fix",
-        "category": "OBP40 Buzzer",
+        "description": "Alarm on missing or lost GPS fix",
+        "category": "OBP40 Alarm",
         "capabilities": {
             "obp40": "false"
         }
@@ -1477,10 +1478,10 @@
         "label": "Buzzer by Limits",
         "type": "boolean",
         "default": "false",
-        "description": "Sound on limit violation",
-        "category": "OBP40 Buzzer",
+        "description": "Alarm on limit violation",
+        "category": "OBP40 Alarm",
         "capabilities": {
-            "obp40": "false"
+            "obp40": "true"
         }
     },
     {
@@ -1495,9 +1496,9 @@
             "Longer Single Beep",
             "Beep until Confirmation"
         ],
-        "category": "OBP40 Buzzer",
+        "category": "OBP40 Alarm",
         "capabilities": {
-            "obp40": "false"
+            "obp40": "true"
         }
     },
     {
@@ -1508,13 +1509,134 @@
         "check": "checkMinMax",
         "min": 0,
         "max": 100,
-        "description": "Buzzer loudness [0...100%]",
-        "category": "OBP40 Buzzer",
+        "description": "Buzzer volume [0...100%]",
+        "category": "OBP40 Alarm",
         "capabilities": {
-            "obp40": "false"
+            "obp40": "true"
         }
-      },
-      {
+    },
+    {
+        "name": "almSuspTime",
+        "label": "Alarm suspend time [min]",
+        "type": "number",
+        "default": "60",
+        "description": "Alarm suspend time after confirmation [minutes]",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almInstance1",
+        "label": "Alarm 1 data instance",
+        "type": "boatData",
+        "default": "---",
+        "description": "Data instance for alarm",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almLowLimit1",
+        "label": "Alarm low threshold",
+        "type": "number",
+        "default": "0",
+        "description": "Low threshold for Alarm",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almHighLimit1",
+        "label": "Alarm high threshold",
+        "type": "number",
+        "default": "0",
+        "description": "High threshold for Alarm",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almSet1",
+        "label": "Alarm set",
+        "type": "boolean",
+        "default": "false",
+        "description": "Alarm set [on|off]",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "snzTime1",
+        "label": "Alarm snooze time [sec]",
+        "type": "number",
+        "default": "300",
+        "description": "Alarm snooze time [seconds]",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almInstance2",
+        "label": "Alarm 2 data instance",
+        "type": "boatData",
+        "default": "---",
+        "description": "Data instance for alarm",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almLowLimit2",
+        "label": "Alarm low threshold",
+        "type": "number",
+        "default": "0",
+        "description": "Low threshold for Alarm",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almHighLimit2",
+        "label": "Alarm high threshold",
+        "type": "number",
+        "default": "0",
+        "description": "High threshold for Alarm",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almSet2",
+        "label": "Alarm set",
+        "type": "boolean",
+        "default": "false",
+        "description": "Alarm set [on|off]",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "snzTime2",
+        "label": "Alarm snooze time [sec]",
+        "type": "number",
+        "default": "300",
+        "description": "Alarm snooze time [seconds]",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
         "name": "visiblePages",
         "label": "Number of Pages",
         "type": "number",

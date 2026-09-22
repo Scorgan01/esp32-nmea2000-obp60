@@ -9,7 +9,9 @@
 
 typedef std::vector<GwApi::BoatValue *> ValueList;
 
+// Forward declaration for availability of class data structures
 class HstryBuffers;
+class Alarms;
 
 typedef struct{
   GwApi *api;
@@ -108,6 +110,7 @@ typedef struct{
     TouchKeyData keydata[6];
     BacklightData backlight;
     AlarmData alarm;
+    Alarms* alarms;
     GwApi::BoatValue *time = nullptr;
     GwApi::BoatValue *date = nullptr;
     uint16_t fgcolor;

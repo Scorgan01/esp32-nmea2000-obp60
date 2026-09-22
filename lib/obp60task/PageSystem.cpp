@@ -290,20 +290,20 @@ private:
         getdisplay().setCursor(120, y0 + 32);
         getdisplay().print(buzzer_mode);
 
-        getdisplay().setCursor(x0, y0 + 64);
-        getdisplay().print("GPS:");
-        getdisplay().setCursor(120, y0 + 64);
-        getdisplay().print(gps_module);
+        getdisplay().setCursor(x0, y0 + 48);
+        getdisplay().print("Buzzer power:");
+        getdisplay().setCursor(120, y0 + 48);
+        getdisplay().print(buzzer_power);
 
         getdisplay().setCursor(x0, y0 + 80);
-        getdisplay().print("RTC:");
+        getdisplay().print("GPS:");
         getdisplay().setCursor(120, y0 + 80);
-        getdisplay().print(rtc_module);
+        getdisplay().print(gps_module);
 
         getdisplay().setCursor(x0, y0 + 96);
-        getdisplay().print("Wifi:");
+        getdisplay().print("RTC:");
         getdisplay().setCursor(120, y0 + 96);
-        getdisplay().print(commonData->status.wifiApOn ? "on" : "off");
+        getdisplay().print(rtc_module);
 
         // Home location
         getdisplay().setCursor(x0, y0 + 128);
@@ -427,40 +427,40 @@ private:
         getdisplay().print(msgCount);
 
         // Wifi state
-        getdisplay().setCursor(x0, y1 + 0 * dy);
+        getdisplay().setCursor(x0, y0 + 5 * dy);
         getdisplay().print("WiFi:");
 
-        getdisplay().setCursor(x0, y1 + 1 * dy);
+        getdisplay().setCursor(x0, y0 + 6 * dy);
         getdisplay().print("Access point:");
-        getdisplay().setCursor(x0 + 120, y1 + 1 * dy);
+        getdisplay().setCursor(x0 + 120, y0 + 6 * dy);
         getdisplay().print(commonData->status.wifiApOn ? "on" : "off");
 
-        getdisplay().setCursor(x0, y1 + 2 * dy);
+        getdisplay().setCursor(x0, y0 + 7 * dy);
         getdisplay().print("SSID:");
-        getdisplay().setCursor(x0 + 120, y1 + 2 * dy);
+        getdisplay().setCursor(x0 + 120, y0 + 7 * dy);
         getdisplay().print(systemName);
 
-        getdisplay().setCursor(x0, y1 + 3 * dy);
+        getdisplay().setCursor(x0, y0 + 8 * dy);
         getdisplay().print("IP address:");
-        getdisplay().setCursor(x0 + 120, y1 + 3 * dy);
+        getdisplay().setCursor(x0 + 120, y0 + 8 * dy);
         getdisplay().print(commonData->status.wifiApIp);
 
-        getdisplay().setCursor(x0, y1 + 4 * dy + 5);
+        getdisplay().setCursor(x0, y0 + 10 * dy);
         getdisplay().print("Client WiFi:");
-        getdisplay().setCursor(x0 + 120, y1 + 4 * dy + 5);
+        getdisplay().setCursor(x0 + 120, y0 + 10 * dy);
         getdisplay().print(commonData->status.wifiClientOn ? "on" : "off");
 
-        getdisplay().setCursor(x0, y1 + 5 * dy + 5);
+        getdisplay().setCursor(x0, y0 + 11 * dy);
         getdisplay().print("SSID:");
-        getdisplay().setCursor(x0 + 120, y1 + 5 * dy + 5);
+        getdisplay().setCursor(x0 + 120, y0 + 11 * dy);
         getdisplay().print(commonData->status.wifiClientSSID);
 
-        getdisplay().setCursor(x0, y1 + 6 * dy + 5);
+        getdisplay().setCursor(x0, y0 + 12 * dy);
         getdisplay().print("IP address:");
-        getdisplay().setCursor(x0+ 120, y1 + 6 * dy + 5);
+        getdisplay().setCursor(x0+ 120, y0 + 12 * dy);
         getdisplay().print(commonData->status.wifiClientIp);
 
-        displayWifiBarcode(systemName, apPasswd, 320, y1, 2);
+        displayWifiBarcode(systemName, apPasswd, 320, y0 + 5 * dy, 2);
     }
 
     void displayModeSDCard() {

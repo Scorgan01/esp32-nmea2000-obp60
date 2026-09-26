@@ -110,7 +110,7 @@ typedef struct{
     TouchKeyData keydata[6];
     BacklightData backlight;
     AlarmData alarm;
-    Alarms* alarms;
+    Alarms* alarmList;
     GwApi::BoatValue *time = nullptr;
     GwApi::BoatValue *date = nullptr;
     uint16_t fgcolor;

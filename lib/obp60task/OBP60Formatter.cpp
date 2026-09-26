@@ -923,6 +923,7 @@ FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, Strin
 }
 
 // Format double value from SI to user defined format and convert to string user defined precision setting
+// Suitable for other fonts than DSEG7
 String formatValue(const double &value, const String &vFormat, CommonData &commondata)
 {
     GwApi::BoatValue tmpBVal("dummy"); // temporary boat value for string formatter
@@ -933,12 +934,13 @@ String formatValue(const double &value, const String &vFormat, CommonData &commo
     tmpBVal.value = value;
     sVal = formatValue(&tmpBVal, commondata, false, String("-1")).svalue; // Formatted value as string including unit conversion and switching decimal places
     if (sVal.length() > 0 && sVal[0] == '!') {
-        sVal = sVal.substring(1); // cut leading "!" created at OBPFormatter; doesn't work for other fonts than 7SEG
+        sVal = sVal.substring(1); // cut leading "!" created at OBPFormatter; doesn't work for other fonts than DSEG7
     }
     return sVal;
 }
 
 // Helper method for conversion of any data value from SI to user defined format
+// Use this version for wind and speed values where the boat data name is required for proper conversion
 double convertValue(const double &value, const String &name, const String &format, CommonData &commondata)
 {
     std::unique_ptr<GwApi::BoatValue> tmpBValue; // Temp variable to get converted data value from <OBP60Formatter::formatValue>
@@ -946,7 +948,8 @@ double convertValue(const double &value, const String &name, const String &forma
     constexpr bool NO_SIMUDATA = true; // switch off simulation feature of <formatValue> function
 
     // prepare temporary BoatValue structure for use in <formatValue>
-    tmpBValue = std::unique_ptr<GwApi::BoatValue>(new GwApi::BoatValue(name)); // we don't need boat value name for pure value conversion
+    tmpBValue = std::unique_ptr<GwApi::BoatValue>(new GwApi::BoatValue(name));  // we don't need boat value name for pure value conversion,
+                                                                                // but for differenciation of wind and speed values
     tmpBValue->setFormat(format);
     tmpBValue->valid = true;
     tmpBValue->value = value;
@@ -956,6 +959,7 @@ double convertValue(const double &value, const String &name, const String &forma
 }
 
 // Helper method for conversion of any data value from SI to user defined format
+// Doesn't actually work for speed data - requires clean-up
 double convertValue(const double &value, const String &format, CommonData &commondata)
 {
     double result; // data value converted to user defined target data format

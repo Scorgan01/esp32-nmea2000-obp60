@@ -111,10 +111,10 @@ void OBP60Init(GwApi *api){
     // Used in OBP60Task()
     initComplete = true;
 
-    // Buzzer tone for initialization finish
+    // Set buzzer tone for all alarm sounds
     setBuzzerPower(uint(api->getConfig()->getConfigItem(api->getConfig()->buzzerPower,true)->asInt()));
+    // Buzzer tone for initialization finish
     buzzer(TONE4, 500);
-
 }
 
 typedef struct {
@@ -464,7 +464,7 @@ void OBP60Task(GwApi *api){
     HstryBuffers hstryBufferList(1920, &boatValues, logger);  // Create empty list of boat data history buffers (1.920 values = seconds = 32 min.)
     WindUtils trueWind(&boatValues, logger);  // Create helper object for true wind calculation
     CalibrationData calibrationDataList(logger); // all boat data types which are supposed to be calibrated
-    Alarms boatAlarms(boatValues, &commonData, logger); // List of all user defined alarm settings
+    Alarms boatAlarms(boatValues, &commonData, logger, api); // List of all user defined alarm settings
 
     // Read user settings from config file
     bool calcTrueWnds = api->getConfig()->getBool(api->getConfig()->calcTrueWnds, false);
@@ -528,8 +528,9 @@ void OBP60Task(GwApi *api){
 
     // add out of band pages "system" and "alarm" (always available)
     Page *syspage = allPages.pages[0]->creator(commonData);
-    Page *alarmPage = allPages.pages[numPages]->creator(commonData);
-    commonData.alarms = &boatAlarms;
+    commonData.alarmList = &boatAlarms;
+    PageDescription *alarmDesc = allPages.find("Alarm");
+    Page *alarmPage = alarmDesc->creator(commonData);
 
     // Display screenshot handler for HTTP request
     // http://192.168.15.1/api/user/OBP60Task/screenshot
@@ -608,13 +609,13 @@ void OBP60Task(GwApi *api){
     bool systemPageNew = false;
     bool callAlarmPage = false;
     bool alarmPageNew = true;
-    commonData.alarm.active = false;
+//    commonData.alarm.active = false;
     Page *currentPage;
 
     // Main loop runs with 100ms
     //####################################################################################
 
-    while (true){
+        while (true){
         delay(100);     // Delay 100ms (loop time)
         bool keypressed = false;
 
@@ -663,11 +664,6 @@ void OBP60Task(GwApi *api){
                 LOG_DEBUG(GwLog::LOG,"new key from keyboard %d",keyboardMessage);
                 keypressed = true;
 
-/*                if (callAlarmPage) {
-                    alarmPage->setupKeys();
-                    alarmPageNew = true;                    
-                }
-                else if (keyboardMessage == 12 and !systemPage) { */
                 if (keyboardMessage == 12 and !systemPage) {
                     LOG_DEBUG(GwLog::LOG, "Calling system page");
                     systemPage = true; // System page is out of band
@@ -685,10 +681,9 @@ void OBP60Task(GwApi *api){
                     }
                 }
 
-/*                if (callAlarmPage) {
+                if (callAlarmPage) {
                     keyboardMessage = alarmPage->handleKey(keyboardMessage);
-                } else if (systemPage) { */
-                if (systemPage) {
+                } else if (systemPage) { 
                     keyboardMessage = syspage->handleKey(keyboardMessage);
                 } else if (currentPage) {
                     keyboardMessage = currentPage->handleKey(keyboardMessage);
@@ -859,6 +854,8 @@ void OBP60Task(GwApi *api){
                 // same page we use page defined time
                 pagetime = currentPage->refreshtime;
             }
+
+            // Display update every 1 second
             if(millis() > starttime3 + pagetime){
                 LOG_DEBUG(GwLog::DEBUG,"Page with refreshtime=%d", pagetime);
                 starttime3 = millis();
@@ -869,13 +866,21 @@ void OBP60Task(GwApi *api){
                 api->getStatus(commonData.status);
 
                 ulong timerStart = micros();
+                // manage boat data
                 trueWind.handleWinds(calcTrueWnds); // calculate true wind data from apparent wind values
                 trueWind.setMaxWs(); // maintain MaxTWS value in any case; invalid TWS value is considered automatically; MaxAWS is provided by core gateway if AWS is available
                 calibrationDataList.handleCalibration(&boatValues); // Process calibration for all boat data in <calibrationDataList>
                 hstryBufferList.handleHstryBufs(useSimuData, commonData); // Handle history buffers for certain boat data for charts and other usage
                 boatAlarms.checkAlarms(); // Test alarm conditions for all defined boat data alarms
-//                callAlarmPage = boatAlarms.countAlarms() > 0;
-                commonData.alarm.active = boatAlarms.countAlarms() > 0;
+                if (boatAlarms.countAlarms() > 0) {
+                    if (!callAlarmPage) // alarm state just changed to alarm active
+                        alarmPageNew = true;
+                    callAlarmPage = true;
+                } else {
+                    if (callAlarmPage) // alarm state just changed to alarm inactive
+                        pageChanged = true; // make sure that former page is setup properly for next display
+                    callAlarmPage = false;
+                }
                 LOG_DEBUG(GwLog::DEBUG, "obp60task: alarm count: %d", boatAlarms.countAlarms());
                 LOG_DEBUG(GwLog::DEBUG, "obp60task: data + alarm handling: %.2f ms", (micros() - timerStart) / 1000.0);
 
@@ -890,18 +895,17 @@ void OBP60Task(GwApi *api){
                 }
 
                 // Call the particular page
-/*                if (callAlarmPage) {
+                if (callAlarmPage) {
                     displayFooter(commonData);
-                    PageData sysparams; // empty
-                    sysparams.api = api;
+                    PageData params; // empty
+                    params.api = api;
                     if (alarmPageNew) {
-                        alarmPage->displayNew(sysparams);
+                        alarmPage->displayNew(params);
                         alarmPageNew = false;
                     }
-                    alarmPage->displayPage(sysparams);
+                    alarmPage->displayPage(params);
                 }
-                else if (systemPage) { */
-                if (systemPage) {
+                else if (systemPage) {
                     displayFooter(commonData);
                     PageData sysparams; // empty
                     sysparams.api = api;
@@ -940,9 +944,9 @@ void OBP60Task(GwApi *api){
                             displayFooter(commonData);
                         }
                         int ret = currentPage->displayPage(pages[pageNumber].parameters);
-                        if (commonData.alarm.active) {
-                            displayAlarm(commonData);
-                        }
+//                        if (commonData.alarm.active) { // not yet in use
+//                            displayAlarm(commonData);
+//                        }
                         if (ret & PAGE_UPDATE) {
                             displayNextPage(); // Partial update (fast)
                         }

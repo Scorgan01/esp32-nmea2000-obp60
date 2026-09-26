@@ -1238,7 +1238,7 @@
     },
     {
         "name": "ownheading",
-        "label": "Alternativ Heading",
+        "label": "Alternative Heading",
         "type": "boolean",
         "default": "false",
         "description": "Calculating an alternative travel direction for\na better and calmer map orientation",
@@ -1252,7 +1252,7 @@
         "label": "Display Mode",
         "type": "list",
         "default": "Logo + QR Code",
-        "description": "Settings for startup display",
+        "description": "Settings for boot screen",
         "list": [
             "White Screen",
             "Logo",
@@ -1493,13 +1493,30 @@
         "list": [
             "Off",
             "Short Single Beep",
-            "Longer Single Beep",
+            "Long Single Beep",
+            "Beep Duration",
             "Beep until Confirmation"
         ],
         "category": "OBP40 Alarm",
         "capabilities": {
             "obp40": "true"
         }
+    },
+    {
+        "name": "buzzerTime",
+        "label": "Buzzer Duration",
+        "type": "number",
+        "check": "checkMinMax",
+        "min": 1,
+        "max": 60,
+        "default": "10",
+        "description": "Duration of buzzer signal after alarm start [1..60 seconds]",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        },
+        "condition":
+            { "buzzerMode": ["Beep Duration" ] }
     },
     {
         "name": "buzzerPower",
@@ -1509,7 +1526,7 @@
         "check": "checkMinMax",
         "min": 0,
         "max": 100,
-        "description": "Buzzer volume [0...100%]",
+        "description": "Buzzer volume [0..100%]",
         "category": "OBP40 Alarm",
         "capabilities": {
             "obp40": "true"
@@ -1582,6 +1599,20 @@
         }
     },
     {
+        "name": "almDelay1",
+        "label": "Alarm delay time [sec]",
+        "type": "number",
+        "check": "checkMinMax",
+        "min": 0,
+        "max": 10,
+        "default": "0",
+        "description": "Time for delayed start of Alarm after threshold violation [0..10 seconds]",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
         "name": "almInstance2",
         "label": "Alarm 2 data instance",
         "type": "boatData",
@@ -1631,6 +1662,227 @@
         "type": "number",
         "default": "300",
         "description": "Alarm snooze time [seconds]",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almDelay2",
+        "label": "Alarm delay time [sec]",
+        "type": "number",
+        "check": "checkMinMax",
+        "min": 0,
+        "max": 10,
+        "default": "0",
+        "description": "Time for delayed start of Alarm after threshold violation [0..10 seconds]",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almInstance3",
+        "label": "Alarm 3 data instance",
+        "type": "boatData",
+        "default": "---",
+        "description": "Data instance for alarm",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almLowLimit3",
+        "label": "Alarm low threshold",
+        "type": "number",
+        "default": "0",
+        "description": "Low threshold for Alarm",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almHighLimit3",
+        "label": "Alarm high threshold",
+        "type": "number",
+        "default": "0",
+        "description": "High threshold for Alarm",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almSet3",
+        "label": "Alarm set",
+        "type": "boolean",
+        "default": "false",
+        "description": "Alarm set [on|off]",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "snzTime3",
+        "label": "Alarm snooze time [sec]",
+        "type": "number",
+        "default": "300",
+        "description": "Alarm snooze time [seconds]",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almDelay3",
+        "label": "Alarm delay time [sec]",
+        "type": "number",
+        "check": "checkMinMax",
+        "min": 0,
+        "max": 10,
+        "default": "0",
+        "description": "Time for delayed start of Alarm after threshold violation [0..10 seconds]",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almInstance4",
+        "label": "Alarm 4 data instance",
+        "type": "boatData",
+        "default": "---",
+        "description": "Data instance for alarm",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almLowLimit4",
+        "label": "Alarm low threshold",
+        "type": "number",
+        "default": "0",
+        "description": "Low threshold for Alarm",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almHighLimit4",
+        "label": "Alarm high threshold",
+        "type": "number",
+        "default": "0",
+        "description": "High threshold for Alarm",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almSet4",
+        "label": "Alarm set",
+        "type": "boolean",
+        "default": "false",
+        "description": "Alarm set [on|off]",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "snzTime4",
+        "label": "Alarm snooze time [sec]",
+        "type": "number",
+        "default": "300",
+        "description": "Alarm snooze time [seconds]",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almDelay4",
+        "label": "Alarm delay time [sec]",
+        "type": "number",
+        "check": "checkMinMax",
+        "min": 0,
+        "max": 10,
+        "default": "0",
+        "description": "Time for delayed start of Alarm after threshold violation [0..10 seconds]",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almInstance5",
+        "label": "Alarm 5 data instance",
+        "type": "boatData",
+        "default": "---",
+        "description": "Data instance for alarm",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almLowLimit5",
+        "label": "Alarm low threshold",
+        "type": "number",
+        "default": "0",
+        "description": "Low threshold for Alarm",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almHighLimit5",
+        "label": "Alarm high threshold",
+        "type": "number",
+        "default": "0",
+        "description": "High threshold for Alarm",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almSet5",
+        "label": "Alarm set",
+        "type": "boolean",
+        "default": "false",
+        "description": "Alarm set [on|off]",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "snzTime5",
+        "label": "Alarm snooze time [sec]",
+        "type": "number",
+        "default": "300",
+        "description": "Alarm snooze time [seconds]",
+        "category": "OBP40 Alarm",
+        "capabilities": {
+            "obp40": "true"
+        }
+    },
+    {
+        "name": "almDelay5",
+        "label": "Alarm delay time [sec]",
+        "type": "number",
+        "check": "checkMinMax",
+        "min": 0,
+        "max": 10,
+        "default": "0",
+        "description": "Time for delayed start of Alarm after threshold violation [0..10 seconds]",
         "category": "OBP40 Alarm",
         "capabilities": {
             "obp40": "true"

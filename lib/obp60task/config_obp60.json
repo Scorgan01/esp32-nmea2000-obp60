@@ -1481,7 +1481,7 @@
         "list": [
             "Off",
             "Short Single Beep",
-            "Longer Single Beep",
+            "Long Single Beep",
             "Beep Duration",
             "Beep until Confirmation"
         ],
@@ -1543,6 +1543,17 @@
         }
     },
     {
+        "name": "almSet1",
+        "label": "Alarm set",
+        "type": "boolean",
+        "default": "false",
+        "description": "Alarm set [on|off]",
+        "category": "OBP60 Alarm",
+        "capabilities": {
+            "obp60": "true"
+        }
+    },
+    {
         "name": "almLowLimit1",
         "label": "Alarm low threshold",
         "type": "number",
@@ -1559,17 +1570,6 @@
         "type": "number",
         "default": "0",
         "description": "High threshold for Alarm",
-        "category": "OBP60 Alarm",
-        "capabilities": {
-            "obp60": "true"
-        }
-    },
-    {
-        "name": "almSet1",
-        "label": "Alarm set",
-        "type": "boolean",
-        "default": "false",
-        "description": "Alarm set [on|off]",
         "category": "OBP60 Alarm",
         "capabilities": {
             "obp60": "true"
@@ -1612,6 +1612,17 @@
         }
     },
     {
+        "name": "almSet2",
+        "label": "Alarm set",
+        "type": "boolean",
+        "default": "false",
+        "description": "Alarm set [on|off]",
+        "category": "OBP60 Alarm",
+        "capabilities": {
+            "obp60": "true"
+        }
+    },
+    {
         "name": "almLowLimit2",
         "label": "Alarm low threshold",
         "type": "number",
@@ -1628,17 +1639,6 @@
         "type": "number",
         "default": "0",
         "description": "High threshold for Alarm",
-        "category": "OBP60 Alarm",
-        "capabilities": {
-            "obp60": "true"
-        }
-    },
-    {
-        "name": "almSet2",
-        "label": "Alarm set",
-        "type": "boolean",
-        "default": "false",
-        "description": "Alarm set [on|off]",
         "category": "OBP60 Alarm",
         "capabilities": {
             "obp60": "true"
@@ -1681,6 +1681,17 @@
         }
     },
     {
+        "name": "almSet3",
+        "label": "Alarm set",
+        "type": "boolean",
+        "default": "false",
+        "description": "Alarm set [on|off]",
+        "category": "OBP60 Alarm",
+        "capabilities": {
+            "obp60": "true"
+        }
+    },
+    {
         "name": "almLowLimit3",
         "label": "Alarm low threshold",
         "type": "number",
@@ -1697,17 +1708,6 @@
         "type": "number",
         "default": "0",
         "description": "High threshold for Alarm",
-        "category": "OBP60 Alarm",
-        "capabilities": {
-            "obp60": "true"
-        }
-    },
-    {
-        "name": "almSet3",
-        "label": "Alarm set",
-        "type": "boolean",
-        "default": "false",
-        "description": "Alarm set [on|off]",
         "category": "OBP60 Alarm",
         "capabilities": {
             "obp60": "true"
@@ -1750,6 +1750,17 @@
         }
     },
     {
+        "name": "almSet4",
+        "label": "Alarm set",
+        "type": "boolean",
+        "default": "false",
+        "description": "Alarm set [on|off]",
+        "category": "OBP60 Alarm",
+        "capabilities": {
+            "obp60": "true"
+        }
+    },
+    {
         "name": "almLowLimit4",
         "label": "Alarm low threshold",
         "type": "number",
@@ -1766,17 +1777,6 @@
         "type": "number",
         "default": "0",
         "description": "High threshold for Alarm",
-        "category": "OBP60 Alarm",
-        "capabilities": {
-            "obp60": "true"
-        }
-    },
-    {
-        "name": "almSet4",
-        "label": "Alarm set",
-        "type": "boolean",
-        "default": "false",
-        "description": "Alarm set [on|off]",
         "category": "OBP60 Alarm",
         "capabilities": {
             "obp60": "true"
@@ -1819,6 +1819,17 @@
         }
     },
     {
+        "name": "almSet5",
+        "label": "Alarm set",
+        "type": "boolean",
+        "default": "false",
+        "description": "Alarm set [on|off]",
+        "category": "OBP60 Alarm",
+        "capabilities": {
+            "obp60": "true"
+        }
+    },
+    {
         "name": "almLowLimit5",
         "label": "Alarm low threshold",
         "type": "number",
@@ -1835,17 +1846,6 @@
         "type": "number",
         "default": "0",
         "description": "High threshold for Alarm",
-        "category": "OBP60 Alarm",
-        "capabilities": {
-            "obp60": "true"
-        }
-    },
-    {
-        "name": "almSet5",
-        "label": "Alarm set",
-        "type": "boolean",
-        "default": "false",
-        "description": "Alarm set [on|off]",
         "category": "OBP60 Alarm",
         "capabilities": {
             "obp60": "true"
@@ -1875,7 +1875,8 @@
         "capabilities": {
             "obp60": "true"
         }
-    },      {
+    },
+    {
         "name": "visiblePages",
         "label": "Number of Pages",
         "type": "number",

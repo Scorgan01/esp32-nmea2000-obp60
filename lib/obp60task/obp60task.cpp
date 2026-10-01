@@ -107,12 +107,9 @@ void OBP60Init(GwApi *api){
         setBlinkingLED(false);
     }
 
-    // Initiate separate buzzer task and buzzer message queue
-    setupBuzzer();
-    // Set buzzer power for all alarm sounds
-    setBuzzerPower(uint(api->getConfig()->getConfigItem(api->getConfig()->buzzerPower,true)->asInt()));
-    // Buzzer tone for initialization finish
-    buzzer(TONE4, 500);
+    setupBuzzer();          // Initiate separate buzzer task and buzzer message queue
+    setBuzzerPower(uint(api->getConfig()->getConfigItem(api->getConfig()->buzzerPower,true)->asInt())); // Set buzzer power for all alarm sounds
+    buzzer(TONE4, 500);     // Buzzer tone for initialization finish
 
     // Marker for init complete
     // Used in OBP60Task()

@@ -67,7 +67,7 @@ void Alarms::readConfig(GwConfigHandler* config)
         }
         a.highLimit = highLimit;
         a.lowLimit = lowLimit;
-        a.almDelay = ulong(config->getString(noAlmDelay, "").toInt() * 1000); // user setting is in seconds
+        a.almDelay = constrain(ulong(config->getString(noAlmDelay, "").toInt() * 1000), 0UL, 10000UL); // user setting is in seconds
         a.snzTimer = ulong(config->getString(noSnzTime, "").toInt() * 1000); // user setting is in seconds
         a.state = INACTIVE;
         a.snzTime = 0;
@@ -118,7 +118,15 @@ void Alarms::checkAlarms()
         LOG_DEBUG(GwLog::DEBUG, "checkAlarms: #%d, boat value: %s, low limit: %.2f, high limit: %.2f, value: %.2f, valid: %d, set: %d",
             alarm.configSlot, alarm.boatValue->getName().c_str(), alarm.lowLimit, alarm.highLimit, alarm.boatValue->value, alarm.boatValue->valid, alarm.alarmSet);
 
+        // Helper: drop any pending (delayed) alarm condition
+        auto clearPending = [&alarm]() {
+            alarm.pendingSince = 0;
+            alarm.pendingHigh = false;
+            alarm.pendingLow = false;
+        };
+
         if (!alarm.alarmSet || !alarm.boatValue->valid) {
+            clearPending();
             setAlarmState(alarm, INACTIVE); // ToDo: implement holdValues and 4 sec delay after invalid data
             continue;
         }
@@ -126,27 +134,50 @@ void Alarms::checkAlarms()
         double value = alarm.boatValue->value;
         AlarmState currentState = getAlarmState(alarm);
 
+        // Condition is "cleared" only when value is back inside the limits incl. hysteresis
+        bool highCleared = (alarm.highLimit <= 0) || (value < alarm.highLimit * (1.0 - HYSTERESIS));
+        bool lowCleared = (alarm.lowLimit <= 0) || (value > alarm.lowLimit * (1.0 + HYSTERESIS));
+
         if ((currentState == INACTIVE && suspTimeOver(alarm)) || (currentState == SNOOZE && snoozeTimeOver(alarm))) {
-            if (alarm.highLimit > 0 && value > alarm.highLimit) {
-                activateAlarm(alarm);
-                alarm.hitHighLimit = true;
+            bool pending = (alarm.pendingSince != 0);
+
+            if (!pending) {
+                // Look for a new alarm condition -> start delay timer
+                bool highHit = (alarm.highLimit > 0 && value > alarm.highLimit);
+                bool lowHit = (alarm.lowLimit > 0 && value < alarm.lowLimit);
+                if (highHit || lowHit) {
+                    alarm.pendingSince = millis();
+                    if (alarm.pendingSince == 0) {
+                        alarm.pendingSince = 1; // 0 is reserved for "not pending"
+                    }
+                    alarm.pendingHigh = highHit;
+                    alarm.pendingLow = lowHit;
+                    pending = true;
+                }
+            } else if (highCleared && lowCleared) {
+                // Condition vanished (incl. hysteresis) within delay time -> no alarm
+                clearPending();
+                pending = false;
             }
-            if (alarm.lowLimit > 0 && value < alarm.lowLimit) {
+
+            // Delay time elapsed while condition still valid -> activate alarm
+            if (pending && (millis() - alarm.pendingSince) >= alarm.almDelay) {
                 activateAlarm(alarm);
-                alarm.hitLowLimit = true;
+                alarm.hitHighLimit = alarm.pendingHigh;
+                alarm.hitLowLimit = alarm.pendingLow;
+                clearPending();
             }
 
         } else if (currentState == ACTIVE) {
-            bool highCleared = (alarm.highLimit <= 0) || (value < alarm.highLimit * (1.0 - HYSTERESIS));
-            bool lowCleared = (alarm.lowLimit <= 0) || (value > alarm.lowLimit * (1.0 + HYSTERESIS));
-
+            clearPending();
             if (highCleared && lowCleared) {
                 suspendAlarm(alarm);
-                if (highCleared)
-                    alarm.hitHighLimit = false;
-                if (lowCleared)
-                    alarm.hitLowLimit = false;
+                alarm.hitHighLimit = false;
+                alarm.hitLowLimit = false;
             }
+        } else {
+            // INACTIVE with suspend time not over, or SNOOZE with snooze time not over
+            clearPending();
         }
         LOG_DEBUG(GwLog::DEBUG, "checkAlarms: alarm state for alarm: %s - %d", alarm.boatValue->getName().c_str(), getAlarmState(alarm));
     }

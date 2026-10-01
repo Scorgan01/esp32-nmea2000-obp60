@@ -7,6 +7,15 @@
 
 class PageAlarm : public Page {
 private:
+
+    enum BuzzerMode {
+        OFF,
+        SHORT,
+        LONG,
+        TIME,
+        ACK
+    };
+
     GwLog* logger;
 
     int width; // Screen width
@@ -19,13 +28,13 @@ private:
     bool holdValues;
     String flashLED;
     bool smallDecimals;
+    String sBuzzerMode;
+    BuzzerMode buzzerMode;
+    ulong buzzerDuration;
+    bool buzzerOn;
 
     Alarms* boatAlarms = nullptr;
-
-    static constexpr int8_t LEFT = 0;
-    static constexpr int8_t CENTER = 1;
-    static constexpr int8_t RIGHT = 2;
-
+    ulong buzzerTime = 0;
     bool flashHdr = true;
 
     // Old values for hold function
@@ -50,6 +59,21 @@ public:
         holdValues = commonData->config->getBool(commonData->config->holdvalues);
         flashLED = commonData->config->getString(commonData->config->flashLED);
         smallDecimals = commonData->config->getBool(commonData->config->smallDecimals);
+        buzzerDuration = ulong(config->getString(commonData->config->buzzerTime, "").toInt() * 1000); // user setting is in seconds
+        sBuzzerMode = commonData->config->getString(commonData->config->buzzerMode);
+        if (sBuzzerMode == "Off") {
+            buzzerMode = OFF;
+        } else if (sBuzzerMode == "Short Beep") {
+            buzzerMode = SHORT;
+        } else if (sBuzzerMode == "Long Beep") {
+            buzzerMode = LONG;
+        } else if (sBuzzerMode == "Beep Duration") {
+            buzzerMode = TIME;
+        } else if (sBuzzerMode == "Beep until Confirmation") {
+            buzzerMode = ACK;
+        } else {
+            buzzerMode = SHORT;
+        };
 
         boatAlarms = commonData->alarmList;
     }
@@ -109,7 +133,9 @@ public:
             setFlashLED(false);
         }
 #endif
-        flashHdr = true; // start alarm window with activated header part
+        buzzerOn = true; // start new alarm window with buzzer sound on
+        buzzerTime = millis();  // start new alarm windows with activated buzzer sound
+        flashHdr = true; // start new alarm window with activated "Alarm" headline
     }
 
     int displayPage(PageData& pageData)
@@ -216,6 +242,22 @@ public:
             }
         }
 
+#if defined BOARD_OBP60S3
+        if (buzzerMode == OFF) {
+            // don't want any buzzer noise
+        } else if (buzzerMode == SHORT && buzzerOn) {
+            buzzer(TONE4, 250);
+            buzzerOn = false; // single alarm tone only
+        } else if (buzzerMode == LONG && buzzerOn) {
+            buzzer(TONE4, 500);
+            buzzerOn = false; // single alarm tone only
+        } else if (buzzerMode == TIME && (millis() - buzzerTime < buzzerDuration)) {
+                // buzzer only as long as buzzerDuration is not exceeded; <buzzerTime> will be reset at next displayNew()
+                buzzer(TONE4, 250);
+        } else if (buzzerMode == ACK) {
+            // ToDo
+        }
+#endif        
         // Update display
         displayNextPage(); // Partial update (fast)
         return PAGE_OK;

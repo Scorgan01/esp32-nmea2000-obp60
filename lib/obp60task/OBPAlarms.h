@@ -27,6 +27,9 @@ public:
         bool hitLowLimit = false; // marks that low threshold was reached
         AlarmState state = INACTIVE; // Alarm state
         ulong almDelay = 0; // Alarm delay time setting for this alarm in millis
+        ulong pendingSince = 0;    // millis() when alarm condition was first detected, 0 = no pending condition
+        bool pendingHigh = false;  // pending condition was caused by high limit
+        bool pendingLow = false;   // pending condition was caused by low limit
         ulong snzTimer = 0; // Snooze time setting for this alarm in millis
         ulong snzTime = 0; // Current snooze time in millis
         ulong suspTime = 0; // Alarm suspend time in millis
@@ -64,7 +67,7 @@ public:
     int getNoOfAlarms() { return alarmList.size(); } // Get number of user defined alarms
     tAlarm* getAlarm(int index); // Get alarm data for <index>
     tAlarm* getActiveAlarm(); // Get 1st active alarm in list
-    void checkAlarms(); // Test current boat values for alarm conditions and activate alarm flag
+    void checkAlarms(); // Test current boat values for alarm conditions and manage alarm flag
     int countAlarms(); // Count no. of active alarms
     bool isAlarm(); // Test for any currently active alarm
     bool isAlarm(tAlarm& alarm){ return getAlarmState(alarm) == ACTIVE; } // Test if <alarm> is currently active

@@ -735,7 +735,8 @@ void setFlashLED(bool status);                  // Set flash LED
 void blinkingFlashLED();                        // Blinking function for flash LED
 void setBlinkingLED(bool on);                   // Set blinking flash LED active
 
-void buzzer(uint frequency, uint duration);     // Buzzer function
+void setupBuzzer();                             // Create separate buzzer task
+void buzzer(uint frequency, uint duration);     // Ring buzzer
 void setBuzzerPower(uint power);                // Set buzzer power
 
 String xdrDelete(String input);                 // Delete xdr prefix from string

@@ -450,8 +450,53 @@ void setBlinkingLED(bool status){
 }
 
 uint buzzerpower = 50;
+static QueueHandle_t buzzerQueue;
 
-void buzzer(uint frequency, uint duration){
+struct BuzzerRequest {
+    uint frequency;
+    uint duration;
+};
+
+// buzzer function in separate task to avoid blocking of main task
+static void buzzerTaskFunction(void* pvParameters) {
+    // Using LED PWM function for sound generation
+    pinMode(OBP_BUZZER, OUTPUT);
+    ledcSetup(0, 2000, 8);        // channel/resolution fixed once; frequency reset per request below
+    ledcAttachPin(OBP_BUZZER, 0);
+
+    BuzzerRequest req;
+    while (true) {
+        if (xQueueReceive(buzzerQueue, &req, portMAX_DELAY) == pdTRUE) {
+            uint frequency = min(req.frequency, uint(8000)); // Max 8000Hz
+            uint duration  = max(req.duration, uint(1000));  // Max 1000ms
+            uint buzzerpower = min(buzzerpower, uint(100));  // Max 100%
+
+            ledcSetup(0, frequency, 8);                 // Ch 0, ferquency in Hz, 8 Bit resolution of PWM
+            ledcWrite(0, uint(buzzerpower * 1.28));     // 50% duty cycle are 100%
+            vTaskDelay(pdMS_TO_TICKS(duration));        // blocks only THIS task, not the caller
+            ledcWrite(0, 0);                            // 0% duty cycle are 0%
+        }
+    }
+}
+
+// Create buzzer task; call once at setup
+// xTask requires 1.700 bytes of memory
+void setupBuzzer() {
+#if defined BOARD_OBP60S3
+    buzzerQueue = xQueueCreate(4, sizeof(BuzzerRequest));
+    xTaskCreate(buzzerTaskFunction, "BuzzerTask", 1192, nullptr, 1, nullptr);
+#endif
+}
+
+// Ring buzzer
+void buzzer(uint frequency, uint duration) {
+#if defined BOARD_OBP60S3
+    BuzzerRequest req{ frequency, duration };
+    xQueueSend(buzzerQueue, &req, 0);   // 0 = don't wait if queue's full, just drop the request
+#endif
+}
+
+/* void buzzer(uint frequency, uint duration){
     if(frequency > 8000){   // Max 8000Hz
         frequency = 8000;
     }
@@ -469,10 +514,10 @@ void buzzer(uint frequency, uint duration){
     ledcWrite(0, uint(buzzerpower * 1.28));    // 50% duty cycle are 100%
     delay(duration);
     ledcWrite(0, 0);                    // 0% duty cycle are 0%
-}
+} */
 
 void setBuzzerPower(uint power){
-    buzzerpower = power;
+    buzzerpower = min(power, uint(100));
 }
 
 // Delete xdr prefix from string

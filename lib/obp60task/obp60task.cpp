@@ -12,7 +12,7 @@
 #include "OBP60Extensions.h"            // Functions lib for extension board
 #include "OBP60Keypad.h"                // Functions for keypad
 #include "OBPDataOperations.h"          // Functions lib for data operations such as true wind calculation
-#include "OBPAlarms.h"                     // Functions lib for boat data alarm handling
+#include "OBPAlarms.h"                  // Functions lib for boat data alarm handling
 
 #ifdef BOARD_OBP40S3
 #include "driver/rtc_io.h"              // Needs for weakup from deep sleep
@@ -107,14 +107,17 @@ void OBP60Init(GwApi *api){
         setBlinkingLED(false);
     }
 
+    // Initiate separate buzzer task and buzzer message queue
+    setupBuzzer();
+    // Set buzzer power for all alarm sounds
+    setBuzzerPower(uint(api->getConfig()->getConfigItem(api->getConfig()->buzzerPower,true)->asInt()));
+    // Buzzer tone for initialization finish
+    buzzer(TONE4, 500);
+
     // Marker for init complete
     // Used in OBP60Task()
     initComplete = true;
 
-    // Set buzzer tone for all alarm sounds
-    setBuzzerPower(uint(api->getConfig()->getConfigItem(api->getConfig()->buzzerPower,true)->asInt()));
-    // Buzzer tone for initialization finish
-    buzzer(TONE4, 500);
 }
 
 typedef struct {
@@ -615,7 +618,7 @@ void OBP60Task(GwApi *api){
     // Main loop runs with 100ms
     //####################################################################################
 
-        while (true){
+    while (true){
         delay(100);     // Delay 100ms (loop time)
         bool keypressed = false;
 
@@ -884,7 +887,7 @@ void OBP60Task(GwApi *api){
                 LOG_DEBUG(GwLog::DEBUG, "obp60task: alarm count: %d", boatAlarms.countAlarms());
                 LOG_DEBUG(GwLog::DEBUG, "obp60task: data + alarm handling: %.2f ms", (micros() - timerStart) / 1000.0);
 
-                // Clear display
+                 // Clear display
                 // getdisplay().fillRect(0, 0, getdisplay().width(), getdisplay().height(), commonData.bgcolor);
                 getdisplay().fillScreen(commonData.bgcolor);  // Clear display
 

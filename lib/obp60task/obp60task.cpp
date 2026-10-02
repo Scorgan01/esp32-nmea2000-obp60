@@ -27,7 +27,7 @@
 #include "OBP60QRWiFi.h"                // Functions lib for WiFi QR code
 #include "OBPSensorTask.h"              // Functions lib for sensor data
 
-// Global vars
+ // Global vars
 bool initComplete = false;      // Initialization complete
 int taskRunCounter = 0;         // Task couter for loop section
 
@@ -107,7 +107,8 @@ void OBP60Init(GwApi *api){
         setBlinkingLED(false);
     }
 
-    setupBuzzer();          // Initiate separate buzzer task and buzzer message queue
+    // Initiate separate buzzer task and buzzer message queue
+    initBuzzer();
     setBuzzerPower(uint(api->getConfig()->getConfigItem(api->getConfig()->buzzerPower,true)->asInt())); // Set buzzer power for all alarm sounds
     buzzer(TONE4, 500);     // Buzzer tone for initialization finish
 

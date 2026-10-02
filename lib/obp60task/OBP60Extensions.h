@@ -735,7 +735,7 @@ void setFlashLED(bool status);                  // Set flash LED
 void blinkingFlashLED();                        // Blinking function for flash LED
 void setBlinkingLED(bool on);                   // Set blinking flash LED active
 
-void setupBuzzer();                             // Create separate buzzer task
+void initBuzzer();                             // Create separate buzzer task
 void buzzer(uint frequency, uint duration);     // Ring buzzer
 void setBuzzerPower(uint power);                // Set buzzer power
 

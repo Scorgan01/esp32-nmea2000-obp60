@@ -38,7 +38,7 @@ public:
     };
 
 private:
-    static constexpr size_t MAX_ALARMS = 2; // max. number of alarm definitions
+    static constexpr size_t MAX_ALARMS = 5; // max. number of alarm definitions
     static constexpr double HYSTERESIS = 0.04; // 4 percent hysteresis
 
     std::vector<tAlarm> alarmList; // array for list of boatValues with alarms specified

@@ -468,12 +468,12 @@ static void buzzerTaskFunction(void* pvParameters) {
     while (true) {
         if (xQueueReceive(buzzerQueue, &req, portMAX_DELAY) == pdTRUE) {
             uint frequency = min(req.frequency, uint(8000)); // Max 8000Hz
-            uint duration  = max(req.duration, uint(1000));  // Max 1000ms
-            uint buzzerpower = min(buzzerpower, uint(100));  // Max 100%
+            uint duration  = min(req.duration, uint(1000));  // Max 1000ms
+            uint power = min(buzzerpower, uint(100));  // Max 100%
 
             ledcSetup(0, frequency, 8);                 // Ch 0, ferquency in Hz, 8 Bit resolution of PWM
-            ledcWrite(0, uint(buzzerpower * 1.28));     // 50% duty cycle are 100%
-            vTaskDelay(pdMS_TO_TICKS(duration));        // blocks only THIS task, not the caller
+            ledcWrite(0, uint(power * 1.28));     // 50% duty cycle are 100%
+            vTaskDelay(pdMS_TO_TICKS(duration));        // blocks only rhis task, not the caller
             ledcWrite(0, 0);                            // 0% duty cycle are 0%
         }
     }
@@ -481,10 +481,10 @@ static void buzzerTaskFunction(void* pvParameters) {
 
 // Create buzzer task; call once at setup
 // xTask requires 1.700 bytes of memory
-void setupBuzzer() {
+void initBuzzer() {
 #if defined BOARD_OBP60S3
     buzzerQueue = xQueueCreate(4, sizeof(BuzzerRequest));
-    xTaskCreate(buzzerTaskFunction, "BuzzerTask", 1192, nullptr, 1, nullptr);
+    xTaskCreate(buzzerTaskFunction, "BuzzerTask", 1288, nullptr, 1, nullptr);
 #endif
 }
 
@@ -492,7 +492,9 @@ void setupBuzzer() {
 void buzzer(uint frequency, uint duration) {
 #if defined BOARD_OBP60S3
     BuzzerRequest req{ frequency, duration };
-    xQueueSend(buzzerQueue, &req, 0);   // 0 = don't wait if queue's full, just drop the request
+    if (buzzerQueue) {
+        xQueueSend(buzzerQueue, &req, 0);   // 0 = don't wait if queue's full, just drop the request
+    }
 #endif
 }
 

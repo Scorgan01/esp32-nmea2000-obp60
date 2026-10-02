@@ -60,8 +60,6 @@ void Alarms::readConfig(GwConfigHandler* config)
         a.alarmSet = config->getBool(noAlarmSet, false);
         double highLimit = config->getString(noHighLimit, "").toDouble();
         double lowLimit = config->getString(noLowLimit, "").toDouble();
-        highLimit = convertValueToSI(highLimit, a.boatValue->getName(), a.boatValue->getFormat());
-        lowLimit = convertValueToSI(lowLimit, a.boatValue->getName(), a.boatValue->getFormat());
         if (highLimit > 0 && lowLimit > highLimit) {
             lowLimit = highLimit; // adjust <lowLimit> if <highLimit> is set
         }
@@ -77,7 +75,7 @@ void Alarms::readConfig(GwConfigHandler* config)
         alarmList.push_back(a);
 
         LOG_DEBUG(GwLog::LOG, "Alarm definition added: boat value: %s, low limit: %f, high limit: %f, alarm set: %d, alarm delay: %d, snooze timer: %d",
-            alarmList[i].boatValue->getName().c_str(), alarmList[i].lowLimit, alarmList[i].highLimit, alarmList[i].alarmSet, alarmList[i].almDelay, alarmList[i].snzTimer);
+            a.boatValue->getName().c_str(), a.lowLimit, a.highLimit, a.alarmSet, a.almDelay, a.snzTimer);
     }
 
     // Update boat value list with format parameters and adjust user defined limit values -> we need corresponding data for formatting

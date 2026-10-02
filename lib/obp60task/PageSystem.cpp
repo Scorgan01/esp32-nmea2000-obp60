@@ -603,6 +603,13 @@ public:
 #endif
         buzzer_mode = common.config->getString(common.config->buzzerMode);
         buzzer_mode.toLowerCase();
+        if (buzzer_mode == "short single beep") {
+            buzzer_mode = "short beep";
+        } else if (buzzer_mode == "long single beep") {
+            buzzer_mode = "long beep";
+        } else if (buzzer_mode == "beep until confirmation") {
+            buzzer_mode ="confirm beep";
+        } // we keep other variants like they are
         buzzer_power = common.config->getInt(common.config->buzzerPower);
         cpuspeed = common.config->getString(common.config->cpuSpeed);
         powermode = common.config->getString(common.config->powerMode);

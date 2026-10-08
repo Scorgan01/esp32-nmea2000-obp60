@@ -507,21 +507,6 @@ bool WindUtils::calcTrueWinds(const double* awaVal, const double* awsVal, const 
     return true;
 }
 
-// Set max wind speed
-void WindUtils::setMaxWs(GwApi::BoatValue* wsMaxValue, const double* wsVal)
-{
-    static double maxWs = 0.0; // maintain own maxTWS value in obp user task; core gateway would reset MaxTWS obp boat value if true wind data is not available
-
-    if (*wsVal != DBL_MAX && *wsVal > maxWs) {
-        maxWs = *wsVal;
-    }
-
-    if (maxWs > 0.0 && maxWs >= wsMaxValue->value) {
-        wsMaxValue->value = maxWs; // overwrite core gateway value each second again with own user task value if that value is larger
-        wsMaxValue->valid = true;
-    }
-};
-
 // Calculate true wind data and add to obp60task boat data list
 bool WindUtils::handleWinds(bool calcWinds)
 {
@@ -591,5 +576,46 @@ bool WindUtils::handleWinds(bool calcWinds)
     }
 
     return twCalculated;
+}
+
+// Set max wind speed
+void WindUtils::setMaxWs(const double* wsVal, GwApi::BoatValue* wsMaxValue)
+{
+    static double maxWs = 0.0; // maintain own maxTWS value in obp user task; core gateway would reset MaxTWS obp boat value if true wind data is not available
+
+    if (*wsVal != DBL_MAX && *wsVal > maxWs) {
+        maxWs = *wsVal;
+    }
+
+    if (maxWs > 0.0 && maxWs >= wsMaxValue->value) {
+        wsMaxValue->value = maxWs; // overwrite core gateway value each second again with own user task value if that value is larger
+        wsMaxValue->valid = true;
+    }
+}
+
+bool WindUtils::calcVMG()
+{
+    if (stwBVal->valid && twaBVal->valid) {
+        vmgBVal->value = abs(stwBVal->value * cos(twaBVal->value));
+        vmgBVal->valid = true;
+    } else {
+        vmgBVal->valid = false;
+        return false;
+    }
+
+    return true;
+}
+
+bool WindUtils::calcVMC()
+{
+    if (sogBVal->valid && cogBVal->valid && btwBVal->valid) {
+        vmcBVal->value = max(0.0, sogBVal->value * cos(cogBVal->value - btwBVal->value));
+        vmcBVal->valid = true;
+    } else {
+        vmcBVal->valid = false;
+        return false;
+    }
+
+    return true;
 }
 // --- End Class WindUtils --------------

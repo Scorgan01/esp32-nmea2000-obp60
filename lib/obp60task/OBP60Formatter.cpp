@@ -223,7 +223,10 @@ FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool 
         result.cvalue = course;
     }
     //########################################################
-    else if (value->getFormat() == "formatKnots" && (value->getName() == "SOG" || value->getName() == "STW") || value->getName() == "DFT"){
+//    else if (value->getFormat() == "formatKnots" && (value->getName() == "SOG" || value->getName() == "STW"
+//            || value->getName() == "VMG" || value->getName() == "DFT")) {
+    else if (value->getFormat() == "formatKnots" && (value->getName() == "SOG" || value->getName() == "STW"
+            || value->getName() == "VMG" || value->getName() == "VMC" || value->getName() == "DFT")) {
         double speed = 0;
         if (usesimudata == false) {
             speed = value->value;

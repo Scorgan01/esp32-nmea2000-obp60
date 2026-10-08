@@ -203,6 +203,8 @@ class GwBoatData{
     GWBOATDATA(double,HDT,formatCourse) // true heading
     GWBOATDATA(double,HDM,formatCourse) // magnetic heading
     GWBOATDATA(double,STW,formatKnots) // water speed
+    GWBOATDATA(double,VMG,formatKnots) // velocity made good
+    GWBOATDATA(double,VMC,formatKnots) // velocity made good on course
     GWBOATDATA(double,VAR,formatWind) // variation
     GWBOATDATA(double,DEV,formatWind) // deviation
     GWBOATDATA(double,AWA,formatWind) // apparent wind ANGLE

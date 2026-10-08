@@ -79,6 +79,7 @@ private:
         { "AWA", { 1000, 10000, 0.0, M_TWOPI } },
         { "AWD", { 1000, 10000, 0.0, M_TWOPI } },
         { "AWS", { 1000, 1000, 0.0, 65.0 } },
+        { "BTW", { 1000, 10000, 0.0, M_TWOPI } },
         { "COG", { 1000, 10000, 0.0, M_TWOPI } },
         { "DBK", { 1000, 100, 0.0, 650.0 } },
         { "DBS", { 1000, 100, 0.0, 650.0 } },
@@ -92,6 +93,8 @@ private:
         { "TWA", { 1000, 10000, 0.0, M_TWOPI } },
         { "TWD", { 1000, 10000, 0.0, M_TWOPI } },
         { "TWS", { 1000, 1000, 0.0, 65.0 } },
+        { "VMC", { 1000, 1000, 0.0, 65.0 } },
+        { "VMG", { 1000, 1000, 0.0, 65.0 } },
         { "WTemp", { 1000, 100, 263.15, 403.15 } }, // water temp [-10..130] °C
         { "formatXdr:C:K", { 1000, 100, 223.15, 423.15 } }, // temperature [-50..150] deg celsius
         { "formatXdr:P:B", { 60000, 1000, 0, 65.0 } }, // pressure [0..65] bar
@@ -116,15 +119,21 @@ private:
     GwApi::BoatValue *twaBVal, *twsBVal, *twdBVal, *maxtwsBVal;
     GwApi::BoatValue *awaBVal, *awsBVal, *awdBVal;
     GwApi::BoatValue *cogBVal, *stwBVal, *sogBVal, *hdtBVal, *hdmBVal, *varBVal;
+    GwApi::BoatValue *vmgBVal, *vmcBVal, *btwBVal;
     double twd, tws, twa, awd;
     static constexpr double DBL_MAX = std::numeric_limits<double>::max();
     GwLog* logger;
 
     // specify missing data for boat value type AWD; AWD is not available in core gateway and need to be specified here
-    void defineAWD() {
+    void defineOwnBoatVals() {
         awdBVal->setFormat("formatCourse");
         awdBVal->valid = false;
+        vmgBVal->setFormat("formatKnots");
+        vmgBVal->valid = false;
+        vmcBVal->setFormat("formatKnots");
+        vmcBVal->valid = false;
     }
+    void setMaxWs(const double* wsVal, GwApi::BoatValue* wsMaxValue);
 
 public:
     WindUtils(BoatValueList* boatValues, GwLog* log)
@@ -132,7 +141,6 @@ public:
     {
         twaBVal = boatValues->findValueOrCreate("TWA");
         twsBVal = boatValues->findValueOrCreate("TWS");
-        maxtwsBVal = boatValues->findValueOrCreate("MaxTws");
         twdBVal = boatValues->findValueOrCreate("TWD");
         awaBVal = boatValues->findValueOrCreate("AWA");
         awsBVal = boatValues->findValueOrCreate("AWS");
@@ -142,9 +150,14 @@ public:
         hdtBVal = boatValues->findValueOrCreate("HDT");
         hdmBVal = boatValues->findValueOrCreate("HDM");
         varBVal = boatValues->findValueOrCreate("VAR");
+        btwBVal = boatValues->findValueOrCreate("BTW");
 
+        // boat values which will be calculated here
+        maxtwsBVal = boatValues->findValueOrCreate("MaxTws");
         awdBVal = boatValues->findValueOrCreate("AWD");
-        defineAWD();
+        vmgBVal = boatValues->findValueOrCreate("VMG");
+        vmcBVal = boatValues->findValueOrCreate("VMC");
+        defineOwnBoatVals();
     };
 
     static double to2PI(double a);
@@ -164,7 +177,9 @@ public:
     bool calcTrueWinds(const double* awaVal, const double* awsVal, const double* awd,
         const double* cogVal, const double* stwVal, const double* sogVal, const double* hdtVal,
         double* twdVal, double* twsVal, double* twaVal);
-    void setMaxWs(GwApi::BoatValue *wsMaxValue, const double * wsVal);
-    void setMaxWs() { setMaxWs(maxtwsBVal, &tws); };
     bool handleWinds(bool calcWinds);
+    void calcOwnBoatVals() { setMaxWs(); calcVMG(); calcVMC(); }
+    void setMaxWs() { setMaxWs(&tws, maxtwsBVal); }
+    bool calcVMG();
+    bool calcVMC();
 };

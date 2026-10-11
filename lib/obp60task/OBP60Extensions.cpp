@@ -451,7 +451,6 @@ void setBlinkingLED(bool status){
 
 uint buzzerpower = 50;
 static QueueHandle_t buzzerQueue;
-
 struct BuzzerRequest {
     uint frequency;
     uint duration;
@@ -469,22 +468,24 @@ static void buzzerTaskFunction(void* pvParameters) {
         if (xQueueReceive(buzzerQueue, &req, portMAX_DELAY) == pdTRUE) {
             uint frequency = min(req.frequency, uint(8000)); // Max 8000Hz
             uint duration  = min(req.duration, uint(1000));  // Max 1000ms
-            uint power = min(buzzerpower, uint(100));  // Max 100%
+            uint power = min(buzzerpower, uint(100));        // Max 100%
 
             ledcSetup(0, frequency, 8);                 // Ch 0, ferquency in Hz, 8 Bit resolution of PWM
-            ledcWrite(0, uint(power * 1.28));     // 50% duty cycle are 100%
+            ledcWrite(0, uint(power * 1.28));           // 50% duty cycle are 100%
             vTaskDelay(pdMS_TO_TICKS(duration));        // blocks only rhis task, not the caller
             ledcWrite(0, 0);                            // 0% duty cycle are 0%
         }
+        delay(20); // interrupt two subsequent buzzer calls
     }
 }
 
 // Create buzzer task; call once at setup
-// xTask requires 1.700 bytes of memory
-void initBuzzer() {
+// xTask requires ~1.700 bytes of memory
+void createBuzzerTask() {
 #if defined BOARD_OBP60S3
     buzzerQueue = xQueueCreate(4, sizeof(BuzzerRequest));
-    xTaskCreate(buzzerTaskFunction, "BuzzerTask", 1288, nullptr, 1, nullptr);
+    xTaskCreatePinnedToCore(buzzerTaskFunction, "BuzzerTask", 1288, nullptr, 1, nullptr, 1);
+    // pin to core 1 in order not to disturb wifi and asyncwebserver on core 0
 #endif
 }
 
@@ -497,26 +498,6 @@ void buzzer(uint frequency, uint duration) {
     }
 #endif
 }
-
-/* void buzzer(uint frequency, uint duration){
-    if(frequency > 8000){   // Max 8000Hz
-        frequency = 8000;
-    }
-    if(buzzerpower > 100){  // Max 100%
-        buzzerpower = 100;
-    }
-    if(duration > 1000){    // Max 1000ms
-        duration = 1000;
-    }
-    
-    // Using LED PWM function for sound generation
-    pinMode(OBP_BUZZER, OUTPUT);
-    ledcSetup(0, frequency, 8);         // Ch 0, ferquency in Hz, 8 Bit resolution of PWM
-    ledcAttachPin(OBP_BUZZER, 0);
-    ledcWrite(0, uint(buzzerpower * 1.28));    // 50% duty cycle are 100%
-    delay(duration);
-    ledcWrite(0, 0);                    // 0% duty cycle are 0%
-} */
 
 void setBuzzerPower(uint power){
     buzzerpower = min(power, uint(100));

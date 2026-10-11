@@ -107,15 +107,13 @@ void OBP60Init(GwApi *api){
         setBlinkingLED(false);
     }
 
-    // Initiate separate buzzer task and buzzer message queue
-    initBuzzer();
+    // Make buzzer settings and initiate separate buzzer task and buzzer message queue
     setBuzzerPower(uint(api->getConfig()->getConfigItem(api->getConfig()->buzzerPower,true)->asInt())); // Set buzzer power for all alarm sounds
-    buzzer(TONE4, 500);     // Buzzer tone for initialization finish
+    createBuzzerTask(); // early task start required because buzzer has to be ready
 
-    // Marker for init complete
-    // Used in OBP60Task()
+    // Marker for init complete; used in OBP60Task()
     initComplete = true;
-
+    buzzer(TONE4, 500);     // Buzzer tone for initialization finish
 }
 
 typedef struct {
@@ -140,7 +138,7 @@ void keyboardTask(void *param){
         //send a key event
         if(keycode != 0){
             xQueueSend(data->queue, &keycode, 0);
-            data->logger->logDebug(GwLog::LOG,"Send keycode: %d", keycode);
+            data->logger->logDebug(GwLog::DEBUG,"Send keycode: %d", keycode);
         }
         delay(20);      // 50Hz update rate (20ms)
     }
@@ -549,7 +547,7 @@ void OBP60Task(GwApi *api){
     #ifdef BOARD_OBP40S3
     allParameters.use_syspage = syspage_enabled;
     #endif
-    xTaskCreate(keyboardTask,"keyboard",2000,&allParameters,configMAX_PRIORITIES-1,NULL);
+    xTaskCreate(keyboardTask,"keyboard",2000,&allParameters,3, NULL);
     SharedData *shared=new SharedData(api);
     createSensorTask(shared);
 
@@ -874,8 +872,10 @@ void OBP60Task(GwApi *api){
                 hstryBufferList.handleHstryBufs(useSimuData, commonData); // Handle history buffers for certain boat data for charts and other usage
                 boatAlarms.checkAlarms(); // Test alarm conditions for all defined boat data alarms
                 if (boatAlarms.countAlarms() > 0) {
-                    if (!callAlarmPage) // alarm state just changed to alarm active
+                    if (!callAlarmPage) { // alarm state just changed to alarm active
                         alarmPageNew = true;
+                        alarmPage->setupKeys();
+                    }
                     callAlarmPage = true;
                 } else {
                     if (callAlarmPage) // alarm state just changed to alarm inactive

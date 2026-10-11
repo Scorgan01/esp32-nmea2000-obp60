@@ -34,6 +34,8 @@ public:
         ulong snzTime = 0; // Current snooze time in millis
         ulong suspTime = 0; // Alarm suspend time in millis
         SignalType signal = MESSAGE; // how to signal MESSAGE | LED | BUZZER (for future use)
+        bool buzzerOn = false; // Indicates buzzer to ring for this alarm occurence
+        ulong buzzerTime = 0; // Stores start time of buzzer sound
         uint8_t alarmTime = 0; // seconds until alarm disappeares without user interaction (for future use)
     };
 
@@ -77,7 +79,7 @@ public:
     bool hitLowLimit (const tAlarm& alarm) const { return alarm.hitLowLimit; }
     bool suspTimeOver(const tAlarm& alarm) const;
     bool snoozeTimeOver(const tAlarm& alarm) const;
-    void activateAlarm(tAlarm& alarm) { setAlarmState(alarm, ACTIVE); }
+    void activateAlarm(tAlarm& alarm);
     void suspendAlarm(tAlarm& alarm);
     void snoozeAlarm(tAlarm& alarm);
 };

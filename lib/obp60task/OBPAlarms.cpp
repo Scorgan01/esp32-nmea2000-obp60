@@ -206,16 +206,23 @@ bool Alarms::Alarms::isAlarm()
     return false;
 }
 
+void Alarms::activateAlarm(tAlarm& alarm) 
+{ 
+    setAlarmState(alarm, ACTIVE);
+    alarm.buzzerOn = true;
+    alarm.buzzerTime = millis();
+}
+
 void Alarms::suspendAlarm(tAlarm& alarm)
 {
-    alarm.suspTime = millis();
     setAlarmState(alarm, INACTIVE);
+    alarm.suspTime = millis();
 }
 
 void Alarms::snoozeAlarm(tAlarm& alarm)
 {
-    alarm.snzTime = millis();
     setAlarmState(alarm, SNOOZE);
+    alarm.snzTime = millis();
 }
 
 // Check alarm inactive time

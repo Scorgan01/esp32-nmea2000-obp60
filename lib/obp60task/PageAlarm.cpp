@@ -78,8 +78,8 @@ public:
     virtual void setupKeys()
     {
         commonData->keydata[0].label = "CNFRM";
-        for (int i = 1; i < 6; i++) {
-            commonData->keydata[i].label = "";
+        for (int i = 1; i < 5; i++) {
+            commonData->keydata[i].label = ""; // delete other key labels except of key 6 <ILUM>
         }
 #if defined BOARD_OBP60S3
         constexpr int SNZ_KEY = 4;
@@ -117,7 +117,12 @@ public:
             commonData->keylock = !commonData->keylock;
             return 0; // Commit the key
         }
-        return key;
+
+        if (key == 6) { // Code for backlight LED function
+            return key; // let function be executed by obp60task()
+        }
+        
+        return 0; // commit any other key -> disable key functions for this page
     }
 
     virtual void displayNew(PageData& pageData)

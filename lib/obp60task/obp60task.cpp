@@ -663,20 +663,22 @@ void OBP60Task(GwApi *api){
                 LOG_DEBUG(GwLog::LOG,"new key from keyboard %d",keyboardMessage);
                 keypressed = true;
 
-                if (keyboardMessage == 12 and !systemPage) {
-                    LOG_DEBUG(GwLog::LOG, "Calling system page");
-                    systemPage = true; // System page is out of band
-                    syspage->setupKeys();
-                    keyboardMessage = 0;
-                    systemPageNew = true;
-                }
-                else {
-                    currentPage = pages[pageNumber].page;
-                    if (systemPage && keyboardMessage == 1) {
-                        // exit system mode with exit key number 1
-                        systemPage = false;
-                        currentPage->setupKeys();
+                if (!callAlarmPage) {
+                    if (keyboardMessage == 12 && !systemPage) {
+                        LOG_DEBUG(GwLog::LOG, "Calling system page");
+                        systemPage = true; // System page is out of band
+                        syspage->setupKeys();
                         keyboardMessage = 0;
+                        systemPageNew = true;
+                    }
+                    else {
+                        currentPage = pages[pageNumber].page;
+                        if (systemPage && keyboardMessage == 1) {
+                            // exit system mode with exit key number 1
+                            systemPage = false;
+                            currentPage->setupKeys();
+                            keyboardMessage = 0;
+                        }
                     }
                 }
 
@@ -864,7 +866,6 @@ void OBP60Task(GwApi *api){
                 api->getBoatDataValues(boatValues.numValues,boatValues.allBoatValues);
                 api->getStatus(commonData.status);
 
-                ulong timerStart = micros();
                 // manage boat data
                 trueWind.handleWinds(calcTrueWnds); // calculate true wind data from apparent wind values
                 trueWind.setMaxWs(); // maintain MaxTWS value in any case; invalid TWS value is considered automatically; MaxAWS is provided by core gateway if AWS is available
@@ -874,6 +875,7 @@ void OBP60Task(GwApi *api){
                 if (boatAlarms.countAlarms() > 0) {
                     if (!callAlarmPage) { // alarm state just changed to alarm active
                         alarmPageNew = true;
+                        systemPage = false; // delete system page state in case it was currently active
                         alarmPage->setupKeys();
                     }
                     callAlarmPage = true;
@@ -882,8 +884,7 @@ void OBP60Task(GwApi *api){
                         pageChanged = true; // make sure that former page is setup properly for next display
                     callAlarmPage = false;
                 }
-                LOG_DEBUG(GwLog::DEBUG, "obp60task: alarm count: %d", boatAlarms.countAlarms());
-                LOG_DEBUG(GwLog::DEBUG, "obp60task: data + alarm handling: %.2f ms", (micros() - timerStart) / 1000.0);
+                // LOG_DEBUG(GwLog::DEBUG, "obp60task: alarm count: %d", boatAlarms.countAlarms());
 
                  // Clear display
                 // getdisplay().fillRect(0, 0, getdisplay().width(), getdisplay().height(), commonData.bgcolor);

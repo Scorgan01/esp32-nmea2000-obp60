@@ -7,7 +7,6 @@
 
 class PageAlarm : public Page {
 private:
-
     enum BuzzerMode {
         OFF,
         SHORT,
@@ -31,11 +30,9 @@ private:
     String sBuzzerMode;
     BuzzerMode buzzerMode;
     ulong buzzerDuration;
-    bool buzzerOn;
 
     Alarms* boatAlarms = nullptr;
-    ulong buzzerTime = 0;
-    bool flashHdr = true;
+    bool flashHdr = true; // Controls flashing of "Alarm" headline
 
     // Old values for hold function
     String sValue1Old = "";
@@ -80,14 +77,15 @@ public:
 
     virtual void setupKeys()
     {
-        Page::setupKeys();
-
+        commonData->keydata[0].label = "CNFRM";
+        for (int i = 1; i < 6; i++) {
+            commonData->keydata[i].label = "";
+        }
 #if defined BOARD_OBP60S3
         constexpr int SNZ_KEY = 4;
 #elif defined BOARD_OBP40S3
         constexpr int SNZ_KEY = 1;
 #endif
-        commonData->keydata[0].label = "CNFRM";
         commonData->keydata[SNZ_KEY].label = "SNOOZE";
     }
 
@@ -133,8 +131,6 @@ public:
             setFlashLED(false);
         }
 #endif
-        buzzerOn = true; // start new alarm window with buzzer sound on
-        buzzerTime = millis();  // start new alarm windows with activated buzzer sound
         flashHdr = true; // start new alarm window with activated "Alarm" headline
     }
 
@@ -239,25 +235,26 @@ public:
                 drawTextRalign(x + 316, y + yTabLn + lineHgt * i, sThreshold, true);
                 getdisplay().setFont(&Ubuntu_Bold8pt8b);
                 getdisplay().print(unit);
+
+#if defined BOARD_OBP60S3
+                if (buzzerMode == OFF) {
+                    // don't want any buzzer noise
+                } else if (buzzerMode == SHORT && alarm.buzzerOn) {
+                    buzzer(TONE4, 500);
+                    alarm.buzzerOn = false; // single alarm tone only
+                } else if (buzzerMode == LONG && alarm.buzzerOn) {
+                    buzzer(TONE4, 1000);
+                    alarm.buzzerOn = false; // single alarm tone only
+                } else if (buzzerMode == TIME && (millis() - alarm.buzzerTime < buzzerDuration)) {
+                    // buzzer tone as long as buzzerDuration is not exceeded; <buzzerTime> will be reset at next displayNew()
+                    buzzer(TONE4, 500);
+                } else if (buzzerMode == ACK) {
+                        buzzer(TONE4, 500);
+                }
+#endif
             }
         }
 
-#if defined BOARD_OBP60S3
-        if (buzzerMode == OFF) {
-            // don't want any buzzer noise
-        } else if (buzzerMode == SHORT && buzzerOn) {
-            buzzer(TONE4, 250);
-            buzzerOn = false; // single alarm tone only
-        } else if (buzzerMode == LONG && buzzerOn) {
-            buzzer(TONE4, 500);
-            buzzerOn = false; // single alarm tone only
-        } else if (buzzerMode == TIME && (millis() - buzzerTime < buzzerDuration)) {
-                // buzzer only as long as buzzerDuration is not exceeded; <buzzerTime> will be reset at next displayNew()
-                buzzer(TONE4, 250);
-        } else if (buzzerMode == ACK) {
-            // ToDo
-        }
-#endif        
         // Update display
         displayNextPage(); // Partial update (fast)
         return PAGE_OK;

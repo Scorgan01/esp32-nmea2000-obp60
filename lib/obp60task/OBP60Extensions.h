@@ -770,6 +770,8 @@ void displayRudderPosition(int rudderPosition, uint8_t rangeDeg, uint16_t cx, ui
 
 void doImageRequest(GwApi *api, int *pageno, const PageStruct pages[MAX_PAGE_NUMBER], AsyncWebServerRequest *request);
 
+double distanceBetweenCoordinates(double lat1, double lon1, double lat2, double lon2); // Calculate the distance between two geo coordinates
+
 // Icons
 #define icon_width 16
 #define icon_height 16

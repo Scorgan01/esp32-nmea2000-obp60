@@ -1,4 +1,6 @@
 #include "OBPAlarms.h"
+#include "OBPDataOperations.h"
+#include "OBP60Extensions.h"
 
 String Alarms::lengthFormat = "";
 String Alarms::distanceFormat = "";
@@ -7,6 +9,103 @@ String Alarms::windspeedFormat = "";
 String Alarms::tempFormat = "";
 uint Alarms::buzzerPower = 0;
 ulong Alarms::alrmSuspTime = 0;
+
+const std::map<Alarms::BoatDataFmt, double> Alarms::hysteresis = {
+    { BoatDataFmt::SPEED, 1.0 },
+    { BoatDataFmt::WINDSPEED, 1.0 },
+    { BoatDataFmt::DEPTH, 1.0 },
+    { BoatDataFmt::COURSE, 5 * DEG_TO_RAD },
+    { BoatDataFmt::WIND, 5 * DEG_TO_RAD },
+    { BoatDataFmt::TEMP, 5.0 },
+    { BoatDataFmt::ROTATION, 5 * DEG_TO_RAD },
+    { BoatDataFmt::DOP, 0.5 },
+    { BoatDataFmt::XTE, 0.5 },
+    { BoatDataFmt::LAT, 0.0002 }, // approx. 20m
+    { BoatDataFmt::LON, 0.0003 }, // approx. 20m at Lat 54°N
+    { BoatDataFmt::DISTANCE, 20 },
+    { BoatDataFmt::TEMP, 5.0 },
+    { BoatDataFmt::PRESSUREBAR, 0.3 }, // pressure in bar
+    { BoatDataFmt::PRESSUREPA, 30000.0 }, // pressure in Pa
+    { BoatDataFmt::HUMIDITY, 1.0 }, // humidity in percent
+    { BoatDataFmt::VOLT, 0.1 }, // voltage
+    { BoatDataFmt::CURRENT, 0.5 }, // current in amperes
+    { BoatDataFmt::RPM, 200 }, // tachometer in rpm
+    { BoatDataFmt::LITRE, 10 }, // volume in litres
+    { BoatDataFmt::CBM, 0.01 }, // volume in cbm
+};
+
+enum class AngleZone : uint8_t { INSIDE,
+    BEYOND_HIGH,
+    BEYOND_LOW };
+
+// Initialize boat data format as a shorter version of boatValue->getFormat() standard format indicator
+static Alarms::BoatDataFmt chkFormat(GwApi::BoatValue* bValue)
+{
+    String format = bValue->getFormat();
+    String name = bValue->getName();
+
+    if (format == "formatKnots" && (name == "SOG" || name == "STW" || name == "DFT")) {
+        return Alarms::BoatDataFmt::SPEED;
+    } else if (format == "formatKnots" && (name == "AWS" || name == "TWS" || name == "MaxAws" || name == "MaxTws")) {
+        return Alarms::BoatDataFmt::WINDSPEED;
+    } else if (format == "formatCourse") {
+        return Alarms::BoatDataFmt::COURSE;
+    } else if (format == "formatWind") {
+        return Alarms::BoatDataFmt::WIND;
+    } else if (format == "formatDepth") {
+        return Alarms::BoatDataFmt::DEPTH;
+    } else if (format == "formatRot") {
+        return Alarms::BoatDataFmt::ROTATION;
+    } else if (format == "formatLatitude") {
+        return Alarms::BoatDataFmt::LAT;
+    } else if (format == "formatLongitude") {
+        return Alarms::BoatDataFmt::LON;
+    } else if (format == "mtr2nm") {
+        return Alarms::BoatDataFmt::DISTANCE;
+    } else if (format == "formatDop") {
+        return Alarms::BoatDataFmt::DOP;
+    } else if (format == "formatXte") {
+        return Alarms::BoatDataFmt::XTE;
+    } else if (format == "kelvinToC") {
+        return Alarms::BoatDataFmt::TEMP;
+    } else if (format == "formatXdr:P:B") {
+        return Alarms::BoatDataFmt::PRESSUREBAR;
+    } else if (format == "formatXdr:P:P") {
+        return Alarms::BoatDataFmt::PRESSUREPA;
+    } else if (format == "formatXdr:H:P") {
+        return Alarms::BoatDataFmt::HUMIDITY;
+    } else if (format == "formatXdr:U:V") {
+        return Alarms::BoatDataFmt::VOLT;
+    } else if (format == "formatXdr:I:A") {
+        return Alarms::BoatDataFmt::CURRENT;
+    } else if (format == "formatXdr:T:R") {
+        return Alarms::BoatDataFmt::RPM;
+    } else if (format == "formatXdr:V:L") {
+        return Alarms::BoatDataFmt::LITRE;
+    } else if (format == "formatXdr:V:M") {
+        return Alarms::BoatDataFmt::CBM;
+    } else {
+        return Alarms::BoatDataFmt::OTHER; // should not happen
+    }
+}
+
+static AngleZone angleOutOfZone(double value, double low, double high, double margin)
+{
+    double width = WindUtils::to2PI(high - low);
+    if (width == 0.0) {
+        return AngleZone::INSIDE; // no usable range -> no alarm
+    }
+    margin = std::min(margin, width / 2.0);
+    double w = width - 2.0 * margin;
+    double fromStart = WindUtils::to2PI(value - (low + margin));
+
+    if (fromStart <= w) {
+        return AngleZone::INSIDE;
+    }
+    double beyond = fromStart - w;
+    double before = 2.0 * PI - fromStart;
+    return (beyond <= before) ? AngleZone::BEYOND_HIGH : AngleZone::BEYOND_LOW;
+}
 
 Alarms::Alarms(BoatValueList& boatValueList, CommonData* common, GwLog* log, GwApi* api)
     : m_boatValueList(boatValueList)
@@ -21,6 +120,8 @@ void Alarms::readConfig(GwConfigHandler* config)
 {
     String noInstance = ""; // the instance variable to read from config
     String noAlarmSet = "";
+    String noAlmLat = "";
+    String noAlmLon = "";
     String noHighLimit = "";
     String noLowLimit = "";
     String noAlmDelay = "";
@@ -42,9 +143,11 @@ void Alarms::readConfig(GwConfigHandler* config)
     // Read alarm definition for data instances
     for (size_t i = 0; i < MAX_ALARMS; i++) {
         noInstance = "almInstance" + String(i + 1);
+        noAlarmSet = "almSet" + String(i + 1);
+        noAlmLat = "almLat" + String(i + 1);
+        noAlmLon = "almLon" + String(i + 1);
         noHighLimit = "almHighLimit" + String(i + 1);
         noLowLimit = "almLowLimit" + String(i + 1);
-        noAlarmSet = "almSet" + String(i + 1);
         noAlmDelay = "almDelay" + String(i + 1);
         noSnzTime = "snzTime" + String(i + 1);
 
@@ -55,34 +158,74 @@ void Alarms::readConfig(GwConfigHandler* config)
         }
 
         tAlarm a;
-        a.boatValue = m_boatValueList.findValueOrCreate(instance);
-        a.configSlot = i + 1;
-        a.alarmSet = config->getBool(noAlarmSet, false);
-        double highLimit = config->getString(noHighLimit, "").toDouble();
-        double lowLimit = config->getString(noLowLimit, "").toDouble();
-        if (highLimit > 0 && lowLimit > highLimit) {
-            lowLimit = highLimit; // adjust <lowLimit> if <highLimit> is set
+        if (instance == "LAT" || instance == "LON") {
+            a.boatValue = m_boatValueList.findValueOrCreate(POSITION_ALARM);  // For positions, we want to store the distance to the reference location as the alarm value
+            a.boatValue->setFormat("mtr2nm");
+        } else {
+            a.boatValue = m_boatValueList.findValueOrCreate(instance);
         }
-        a.highLimit = highLimit;
-        a.lowLimit = lowLimit;
+        if (!a.boatValue) {
+            LOG_DEBUG(GwLog::LOG, "Alarm definition for instance no. %d failed.", i + 1);
+            continue;
+        }
+
+        a.alarmSet = config->getBool(noAlarmSet, false);
+        a.latitude = config->getString(noAlmLat, "").toDouble();
+        a.longitude = config->getString(noAlmLon, "").toDouble();
+        String sHigh = config->getString(noHighLimit, "");
+        String sLow = config->getString(noLowLimit, "");
+        sHigh.trim();
+        sLow.trim();
+        a.highLimit = sHigh.isEmpty() ? NO_HIGH_LIMIT : sHigh.toDouble();
+        a.lowLimit = sLow.isEmpty() ? NO_LOW_LIMIT : sLow.toDouble();
         a.almDelay = constrain(ulong(config->getString(noAlmDelay, "").toInt() * 1000), 0UL, 10000UL); // user setting is in seconds
         a.snzTimer = ulong(config->getString(noSnzTime, "").toInt() * 1000); // user setting is in seconds
-        a.state = INACTIVE;
+        a.state = AlarmState::INACTIVE;
         a.snzTime = 0;
         a.suspTime = 0;
         a.alarmTime = 0;
-        a.signal = MESSAGE;
+        a.signal = SignalType::MESSAGE;
         alarmList.push_back(a);
-
-        LOG_DEBUG(GwLog::LOG, "Alarm definition added: boat value: %s, low limit: %f, high limit: %f, alarm set: %d, alarm delay: %d, snooze timer: %d",
-            a.boatValue->getName().c_str(), a.lowLimit, a.highLimit, a.alarmSet, a.almDelay, a.snzTimer);
     }
 
-    // Update boat value list with format parameters and adjust user defined limit values -> we need corresponding data for formatting
+    // Update boat value list with format parameters and adjust user defined limit values -> we need corresponding boat data for proper conversion
     m_api->getBoatDataValues(m_boatValueList.numValues, m_boatValueList.allBoatValues);
     for (auto& a : alarmList) {
-        a.highLimit = convertValueToSI(a.highLimit, a.boatValue->getName(), a.boatValue->getFormat());
-        a.lowLimit = convertValueToSI(a.lowLimit, a.boatValue->getName(), a.boatValue->getFormat());
+        a.format = chkFormat(a.boatValue);
+
+        bool hasHigh = std::isfinite(a.highLimit);
+        bool hasLow = std::isfinite(a.lowLimit);
+        if (hasHigh) {
+            a.highLimit = convertValueToSI(a.highLimit, a.format);
+        }
+        if (hasLow) {
+            a.lowLimit = convertValueToSI(a.lowLimit, a.format);
+        }
+
+        if (a.format == Alarms::BoatDataFmt::COURSE || a.format == Alarms::BoatDataFmt::WIND) {
+            // angles require a range of low and high threshold; if one is not given, we set it to 0°
+            if (!hasLow) {
+                a.lowLimit = 0.0;
+            };
+            if (!hasHigh) {
+                a.highLimit = M_TWOPI;
+            }
+
+        } else { // for other boat values we want to make sure that low threshold is not larger than high value
+            if (hasHigh && hasLow && a.lowLimit > a.highLimit) {
+                a.lowLimit = a.highLimit; // adjust <lowLimit> if bigger than <highLimit>; does not apply to wind angle or direction
+            }
+        }
+
+        auto it = hysteresis.find(a.format);
+        if (it != hysteresis.end()) {
+            a.hysteresis = it->second;
+        } else {
+            a.hysteresis = 0.0;
+        }
+
+        LOG_DEBUG(GwLog::LOG, "Alarm definition added: boat value: %s, format: %s, low limit: %f, high limit: %f, hysteresis: %f, alarm set: %d, alarm delay: %lu, snooze timer: %lu",
+            a.boatValue->getName().c_str(), a.boatValue->getFormat().c_str(), a.lowLimit, a.highLimit, a.hysteresis, a.alarmSet, a.almDelay, a.snzTimer);
     }
 
     LOG_DEBUG(GwLog::LOG, "All alarm definition data read");
@@ -109,12 +252,59 @@ Alarms::tAlarm* Alarms::getActiveAlarm()
     return nullptr;
 }
 
+// Check whether boatvalue exceeds high threshold
+bool Alarms::checkHighHit(const tAlarm& alarm, bool withHysteresis) const
+{
+    if (alarm.format == Alarms::BoatDataFmt::COURSE || alarm.format == Alarms::BoatDataFmt::WIND) {
+        if (!std::isfinite(alarm.lowLimit) || !std::isfinite(alarm.highLimit)) {
+            return false; // an angle range needs both limits
+        }
+        double margin = withHysteresis ? alarm.hysteresis : 0.0;
+        return angleOutOfZone(alarm.boatValue->value, alarm.lowLimit, alarm.highLimit, margin) == AngleZone::BEYOND_HIGH;
+    }
+
+    double margin = 0.0;
+    double limit = alarm.highLimit;
+    if (!std::isfinite(limit)) { // no high limit defined
+        return false;
+    }
+
+    if (withHysteresis) {
+        margin = (alarm.hysteresis > 0.0) ? alarm.hysteresis : fabs(limit) * HYSTERESIS; // fallback: percent
+    }
+    return alarm.boatValue->value > (limit - margin);
+}
+
+// Check whether boatvalue exceeds low threshold
+bool Alarms::checkLowHit(const tAlarm& alarm, bool withHysteresis) const
+{
+    if (alarm.format == Alarms::BoatDataFmt::COURSE || alarm.format == Alarms::BoatDataFmt::WIND) {
+        if (!std::isfinite(alarm.lowLimit) || !std::isfinite(alarm.highLimit)) {
+            return false; // an angle range needs both limits
+        }
+        double margin = withHysteresis ? alarm.hysteresis : 0.0;
+        return angleOutOfZone(alarm.boatValue->value, alarm.lowLimit, alarm.highLimit, margin) == AngleZone::BEYOND_LOW;
+    }
+
+    double margin = 0.0;
+    double limit = alarm.lowLimit;
+    if (!std::isfinite(limit)) { // no low limit defined
+        return false;
+    }
+
+    if (withHysteresis) {
+        margin = (alarm.hysteresis > 0.0) ? alarm.hysteresis : fabs(limit) * HYSTERESIS; // fallback: percent
+    }
+
+    return alarm.boatValue->value < (limit + margin);
+}
+
 // Test current boat values for alarm conditions and activate alarm flag
 void Alarms::checkAlarms()
 {
     for (auto& alarm : alarmList) {
-        LOG_DEBUG(GwLog::DEBUG, "checkAlarms: #%d, boat value: %s, low limit: %.2f, high limit: %.2f, value: %.2f, valid: %d, set: %d",
-            alarm.configSlot, alarm.boatValue->getName().c_str(), alarm.lowLimit, alarm.highLimit, alarm.boatValue->value, alarm.boatValue->valid, alarm.alarmSet);
+        LOG_DEBUG(GwLog::DEBUG, "checkAlarms: boat value: %s, low limit: %.2f, high limit: %.2f, value: %.2f, valid: %d, set: %d",
+            alarm.boatValue->getName().c_str(), alarm.lowLimit, alarm.highLimit, alarm.boatValue->value, alarm.boatValue->valid, alarm.alarmSet);
 
         // Helper: drop any pending (delayed) alarm condition
         auto clearPending = [&alarm]() {
@@ -123,28 +313,40 @@ void Alarms::checkAlarms()
             alarm.pendingLow = false;
         };
 
+        // For position alarms, calculate distance to reference position as alarm value
+        if (alarm.boatValue->getName() == POSITION_ALARM && alarm.alarmSet) {
+            GwApi::BoatValue* bValueLat = m_boatValueList.findValueOrCreate("LAT"); // read current location
+            GwApi::BoatValue* bValueLon = m_boatValueList.findValueOrCreate("LON");
+            if (bValueLat->valid && bValueLon->valid) {
+                alarm.boatValue->value = distanceBetweenCoordinates(bValueLat->value, bValueLon->value, alarm.latitude, alarm.longitude);
+                alarm.boatValue->valid = true;
+            } else {
+                alarm.boatValue->valid = false;
+            }
+        }
+
         if (!alarm.alarmSet || !alarm.boatValue->valid) {
             clearPending();
-            setAlarmState(alarm, INACTIVE); // ToDo: implement holdValues and 4 sec delay after invalid data
+            setAlarmState(alarm, AlarmState::INACTIVE); // ToDo: implement holdValues and 4 sec delay after invalid data
+            alarm.hitHighLimit = false;
+            alarm.hitLowLimit = false;
             continue;
         }
 
-        double value = alarm.boatValue->value;
         AlarmState currentState = getAlarmState(alarm);
 
-        // Condition is "cleared" only when value is back inside the limits incl. hysteresis
-        bool highCleared = (alarm.highLimit <= 0) || (value < alarm.highLimit * (1.0 - HYSTERESIS));
-        bool lowCleared = (alarm.lowLimit <= 0) || (value > alarm.lowLimit * (1.0 + HYSTERESIS));
+        // Check if current alarm value is below limit incl. threshold
+        bool highCleared = !checkHighHit(alarm, true);
+        bool lowCleared = !checkLowHit(alarm, true);
 
-        if ((currentState == INACTIVE && suspTimeOver(alarm)) || (currentState == SNOOZE && snoozeTimeOver(alarm))) {
+        if ((currentState == AlarmState::INACTIVE && suspTimeOver(alarm)) || (currentState == AlarmState::SNOOZE && snoozeTimeOver(alarm))) {
             bool pending = (alarm.pendingSince != 0);
 
             if (!pending) {
-                // Look for a new alarm condition -> start delay timer
-                bool highHit = (alarm.highLimit > 0 && value > alarm.highLimit);
-                bool lowHit = (alarm.lowLimit > 0 && value < alarm.lowLimit);
+                bool highHit = checkHighHit(alarm);
+                bool lowHit = checkLowHit(alarm);
                 if (highHit || lowHit) {
-                    alarm.pendingSince = millis();
+                    alarm.pendingSince = millis(); // start delay timer
                     if (alarm.pendingSince == 0) {
                         alarm.pendingSince = 1; // 0 is reserved for "not pending"
                     }
@@ -166,7 +368,7 @@ void Alarms::checkAlarms()
                 clearPending();
             }
 
-        } else if (currentState == ACTIVE) {
+        } else if (currentState == AlarmState::ACTIVE) {
             clearPending();
             if (highCleared && lowCleared) {
                 suspendAlarm(alarm);
@@ -177,7 +379,7 @@ void Alarms::checkAlarms()
             // INACTIVE with suspend time not over, or SNOOZE with snooze time not over
             clearPending();
         }
-        LOG_DEBUG(GwLog::DEBUG, "checkAlarms: alarm state for alarm: %s - %d", alarm.boatValue->getName().c_str(), getAlarmState(alarm));
+        LOG_DEBUG(GwLog::DEBUG, "checkAlarms: alarm state for alarm: %s: %d", alarm.boatValue->getName().c_str(), getAlarmState(alarm));
     }
 }
 
@@ -186,7 +388,7 @@ int Alarms::countAlarms()
 {
     int count = 0;
     for (auto& alarm : alarmList) {
-        if (getAlarmState(alarm) == ACTIVE) {
+        if (getAlarmState(alarm) == AlarmState::ACTIVE) {
             count++;
         }
     }
@@ -198,7 +400,7 @@ int Alarms::countAlarms()
 bool Alarms::Alarms::isAlarm()
 {
     for (auto& alarm : alarmList) {
-        if (getAlarmState(alarm) == ACTIVE) {
+        if (getAlarmState(alarm) == AlarmState::ACTIVE) {
             return true;
         }
     }
@@ -206,22 +408,22 @@ bool Alarms::Alarms::isAlarm()
     return false;
 }
 
-void Alarms::activateAlarm(tAlarm& alarm) 
-{ 
-    setAlarmState(alarm, ACTIVE);
+void Alarms::activateAlarm(tAlarm& alarm)
+{
+    setAlarmState(alarm, AlarmState::ACTIVE);
     alarm.buzzerOn = true;
     alarm.buzzerTime = millis();
 }
 
 void Alarms::suspendAlarm(tAlarm& alarm)
 {
-    setAlarmState(alarm, INACTIVE);
+    setAlarmState(alarm, AlarmState::INACTIVE);
     alarm.suspTime = millis();
 }
 
 void Alarms::snoozeAlarm(tAlarm& alarm)
 {
-    setAlarmState(alarm, SNOOZE);
+    setAlarmState(alarm, AlarmState::SNOOZE);
     alarm.snzTime = millis();
 }
 
@@ -254,52 +456,56 @@ bool Alarms::snoozeTimeOver(const tAlarm& alarm) const
 }
 
 // Convert boat values from user input format to internal standard SI format
-double Alarms::convertValueToSI(const double value, const String& valueName, const String& valueFormat)
+double Alarms::convertValueToSI(const double value, const BoatDataFmt valueFormat)
 {
     double result = value;
 
-    if (valueFormat == "formatKnots") {
-        if (valueName == "AWS" || valueName == "TWS" || valueName == "MaxAws" || valueName == "MaxTws") {
-            if (windspeedFormat == "km/h") {
-                result /= 3.6; // Convert km/h to m/s
-            } else if (windspeedFormat == "kn") {
-                result /= 1.94384; // Convert kn to m/s
-            } else if (windspeedFormat == "bft") {
-                result *= 2 + (value / 2); // Convert Bft to m/s (approx) -> to be improved
-            } else { // value is given in SI m/s
-                // No conversion needed
-            }
+    if (valueFormat == Alarms::BoatDataFmt::SPEED) {
+        if (speedFormat == "km/h") {
+            result /= 3.6; // Convert km/h to m/s
+        } else if (speedFormat == "kn") {
+            result /= 1.94384; // Convert kn to m/s
+        } else { // value is given in SI m/s
+            // No conversion needed
         }
-        if (valueName == "SOG" || valueName == "STW" || valueName == "DFT") {
-            if (speedFormat == "km/h") {
-                result /= 3.6; // Convert km/h to m/s
-            } else if (speedFormat == "kn") {
-                result /= 1.94384; // Convert kn to m/s
-            } else { // value is given in SI m/s
-                // No conversion needed
-            }
-        }
-    }
 
-    else if (valueFormat == "formatDepth") {
+    } else if (valueFormat == BoatDataFmt::WINDSPEED) {
+        if (windspeedFormat == "km/h") {
+            result /= 3.6; // Convert km/h to m/s
+        } else if (windspeedFormat == "kn") {
+            result /= 1.94384; // Convert kn to m/s
+        } else if (windspeedFormat == "bft") {
+            result *= 2 + (value / 2); // Convert Bft to m/s (approx) -> to be improved
+        } else { // value is given in SI m/s
+            // No conversion needed
+        }
+
+    } else if (valueFormat == Alarms::BoatDataFmt::COURSE) {
+        result *= DEG_TO_RAD;
+        result = WindUtils::to2PI(result);
+
+    } else if (valueFormat == Alarms::BoatDataFmt::WIND) {
+        result *= DEG_TO_RAD;
+        result = WindUtils::to2PI(result);
+        // result = WindUtils::toPI(result); // currently wind angles are stored in [0..2PI] format
+
+    } else if (valueFormat == Alarms::BoatDataFmt::DEPTH) {
         if (lengthFormat == "ft") {
             result /= 3.28084; // Convert ft to m
         } else { // value is given in SI metres
             // No conversion needed
         }
-    }
 
-    else if (valueFormat == "formatXte") {
-        if (String(distanceFormat) == "km") {
+    } else if (valueFormat == Alarms::BoatDataFmt::XTE || valueFormat == Alarms::BoatDataFmt::DISTANCE) {
+        if (distanceFormat == "km") {
             result *= 1000;
-        } else if (String(distanceFormat) == "nm") {
+        } else if (distanceFormat == "nm") {
             result *= 1852;
         } else { // value is given in SI metres
             // No conversion needed
         }
-    }
 
-    else if (valueFormat == "kelvinToC") {
+    } else if (valueFormat == Alarms::BoatDataFmt::TEMP) {
         if (tempFormat == "C") {
             result += 273.15;
         } else if (tempFormat == "F") {

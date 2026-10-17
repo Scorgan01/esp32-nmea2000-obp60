@@ -156,7 +156,7 @@ public:
         std::vector<Alarms::tAlarm>* alarmList;
         alarmList = boatAlarms->getAlarmList();
 
-        LOG_DEBUG(GwLog::DEBUG, "PageAlarm: # of alarms: Defined - %d; active - %d", boatAlarms->getNoOfAlarms(), boatAlarms->countAlarms());
+        LOG_DEBUG(GwLog::DEBUG, "PageAlarm: # of alarms: Defined: %d; active: %d", boatAlarms->getNoOfAlarms(), boatAlarms->countAlarms());
 
         // Draw page
         //***********************************************************
@@ -198,7 +198,7 @@ public:
         const GFXfont* textFnt = nullptr;
         const GFXfont* numFnt = nullptr;
         for (auto& alarm : *alarmList) {
-            if (boatAlarms->getAlarmState(alarm) == Alarms::ACTIVE) {
+            if (boatAlarms->getAlarmState(alarm) == Alarms::AlarmState::ACTIVE) {
                 i++;
 
                 if (i == 1) { // increase font size for 1st alarm because this is the alarm to be acknoledged
@@ -212,24 +212,25 @@ public:
                 GwApi::BoatValue* bvalue = alarm.boatValue;
                 String name = xdrDelete(bvalue->getName()); // Value name
                 name = name.substring(0, 6); // String length limit for value name
-                double value = bvalue->value; // Value as double in SI unit
                 String svalue = formatValue(bvalue, *commonData).svalue;
                 String unit = formatValue(bvalue, *commonData).unit; // Unit of value
+                LOG_DEBUG(GwLog::DEBUG, "PageAlarm: alarm #%d; name: %s, value: %f, svalue: %s, high limit: %f, format: %s", i, alarm.boatValue->getName().c_str(), alarm.boatValue->value,
+                    svalue, alarm.highLimit, alarm.boatValue->getFormat().c_str());
 
                 getdisplay().setCursor(x + 10, y + yTabLn + lineHgt * i);
                 getdisplay().setFont(textFnt);
                 getdisplay().print("#" + String(i));
                 getdisplay().setCursor(x + xTab1, y + yTabLn + lineHgt * i);
-                getdisplay().print(name);
+                getdisplay().print(name);                   // alarm boat value name
                 getdisplay().setFont(numFnt);
-                drawTextRalign(x + xTab3 - 49, y + yTabLn + lineHgt * i, svalue, true);
+                drawTextRalign(x + xTab3 - 49, y + yTabLn + lineHgt * i, svalue, true);     // current alarm boat value
                 getdisplay().setFont(&Ubuntu_Bold8pt8b);
-                getdisplay().print(unit);
+                getdisplay().print(unit);                   // alarm boat value unit
 
                 double threshold;
-                if (boatAlarms->hitHighLimit(alarm))
+                if (boatAlarms->triggeredByHigh(alarm))
                     threshold = alarm.highLimit;
-                if (boatAlarms->hitLowLimit(alarm))
+                if (boatAlarms->triggeredByLow(alarm))
                     threshold = alarm.lowLimit;
                 GwApi::BoatValue tmpBVal(bvalue->getName()); // temporary boat value for string formatter
                 tmpBVal.setFormat(bvalue->getFormat());
@@ -237,7 +238,7 @@ public:
                 tmpBVal.value = threshold;
                 String sThreshold = formatValue(&tmpBVal, *commonData).svalue;
                 getdisplay().setFont(numFnt);
-                drawTextRalign(x + 316, y + yTabLn + lineHgt * i, sThreshold, true);
+                drawTextRalign(x + 316, y + yTabLn + lineHgt * i, sThreshold, true);        // alarm boat value threshold
                 getdisplay().setFont(&Ubuntu_Bold8pt8b);
                 getdisplay().print(unit);
 

@@ -1458,7 +1458,7 @@
             "obp70": "true"
         },
         "condition":
-            { "buzzerMode": ["Beep Duration" ] }
+            { "buzzerMode": [ "Beep Duration"] }
     },
     {
         "name": "buzzerPower",
@@ -1471,9 +1471,9 @@
         "description": "Buzzer volume [0..100%]",
         "category": "OBP70 Alarm",
         "capabilities": {
-            "obp70":"true"
+            "obp70": "true"
         }
-      },
+    },
     {
         "name": "almSuspTime",
         "label": "Alarm suspend time [min]",
@@ -1508,11 +1508,44 @@
         }
     },
     {
+        "name": "almLat1",
+        "label": "Target position LAT",
+        "type": "number",
+        "default": "0.00000",
+        "description": "Latitude of target position in decimal degrees.",
+        "category": "OBP70 Alarm",
+        "capabilities": {
+            "obp70": "true"
+        },
+        "condition": {
+            "almInstance1": [
+                "LAT",
+                "LON"
+            ]
+        }
+    },
+    {
+        "name": "almLon1",
+        "label": "Target position LON",
+        "type": "number",
+        "default": "0.00000",
+        "description": "Longitude of target position in decimal degrees.",
+        "category": "OBP70 Alarm",
+        "capabilities": {
+            "obp70": "true"
+        },
+        "condition": {
+            "almInstance1": [
+                "LAT",
+                "LON"
+            ]
+        }
+    },
+    {
         "name": "almLowLimit1",
         "label": "Alarm low threshold",
-        "type": "number",
-        "default": "0",
-        "description": "Low threshold for Alarm",
+        "type": "string",
+        "description": "Low threshold for Alarm.\nFormat is equal to alarm instance format, e.g. metres, knots.\nLeave empty for no threshold.",
         "category": "OBP70 Alarm",
         "capabilities": {
             "obp70": "true"
@@ -1521,9 +1554,8 @@
     {
         "name": "almHighLimit1",
         "label": "Alarm high threshold",
-        "type": "number",
-        "default": "0",
-        "description": "High threshold for Alarm",
+        "type": "string",
+        "description": "High threshold for Alarm.\nFormat is equal to alarm instance format, e.g. metres, knots.\nLeave empty for no threshold.",
         "category": "OBP70 Alarm",
         "capabilities": {
             "obp70": "true"
@@ -1577,11 +1609,44 @@
         }
     },
     {
+        "name": "almLat2",
+        "label": "Target position LAT",
+        "type": "number",
+        "default": "0.00000",
+        "description": "Latitude of target position in decimal degrees.",
+        "category": "OBP70 Alarm",
+        "capabilities": {
+            "obp70": "true"
+        },
+        "condition": {
+            "almInstance2": [
+                "LAT",
+                "LON"
+            ]
+        }
+    },
+    {
+        "name": "almLon2",
+        "label": "Target position LON",
+        "type": "number",
+        "default": "0.00000",
+        "description": "Longitude of target position in decimal degrees.",
+        "category": "OBP70 Alarm",
+        "capabilities": {
+            "obp70": "true"
+        },
+        "condition": {
+            "almInstance2": [
+                "LAT",
+                "LON"
+            ]
+        }
+    },
+    {
         "name": "almLowLimit2",
         "label": "Alarm low threshold",
-        "type": "number",
-        "default": "0",
-        "description": "Low threshold for Alarm",
+        "type": "string",
+        "description": "Low threshold for Alarm.\nFormat is equal to alarm instance format, e.g. metres, knots.\nLeave empty for no threshold.",
         "category": "OBP70 Alarm",
         "capabilities": {
             "obp70": "true"
@@ -1590,9 +1655,8 @@
     {
         "name": "almHighLimit2",
         "label": "Alarm high threshold",
-        "type": "number",
-        "default": "0",
-        "description": "High threshold for Alarm",
+        "type": "string",
+        "description": "Low threshold for Alarm.\nFormat is equal to alarm instance format, e.g. metres, knots.\nLeave empty for no threshold.",
         "category": "OBP70 Alarm",
         "capabilities": {
             "obp70": "true"
@@ -1646,11 +1710,44 @@
         }
     },
     {
+        "name": "almLat3",
+        "label": "Target position LAT",
+        "type": "number",
+        "default": "0.00000",
+        "description": "Latitude of target position in decimal degrees.",
+        "category": "OBP70 Alarm",
+        "capabilities": {
+            "obp70": "true"
+        },
+        "condition": {
+            "almInstance3": [
+                "LAT",
+                "LON"
+            ]
+        }
+    },
+    {
+        "name": "almLon3",
+        "label": "Target position LON",
+        "type": "number",
+        "default": "0.00000",
+        "description": "Longitude of target position in decimal degrees.",
+        "category": "OBP70 Alarm",
+        "capabilities": {
+            "obp70": "true"
+        },
+        "condition": {
+            "almInstance3": [
+                "LAT",
+                "LON"
+            ]
+        }
+    },
+    {
         "name": "almLowLimit3",
         "label": "Alarm low threshold",
-        "type": "number",
-        "default": "0",
-        "description": "Low threshold for Alarm",
+        "type": "string",
+        "description": "Low threshold for Alarm.\nFormat is equal to alarm instance format, e.g. metres, knots.\nLeave empty for no threshold.",
         "category": "OBP70 Alarm",
         "capabilities": {
             "obp70": "true"
@@ -1659,9 +1756,8 @@
     {
         "name": "almHighLimit3",
         "label": "Alarm high threshold",
-        "type": "number",
-        "default": "0",
-        "description": "High threshold for Alarm",
+        "type": "string",
+        "description": "Low threshold for Alarm.\nFormat is equal to alarm instance format, e.g. metres, knots.\nLeave empty for no threshold.",
         "category": "OBP70 Alarm",
         "capabilities": {
             "obp70": "true"
@@ -1715,11 +1811,44 @@
         }
     },
     {
+        "name": "almLat4",
+        "label": "Target position LAT",
+        "type": "number",
+        "default": "0.00000",
+        "description": "Latitude of target position in decimal degrees.",
+        "category": "OBP70 Alarm",
+        "capabilities": {
+            "obp70": "true"
+        },
+        "condition": {
+            "almInstance4": [
+                "LAT",
+                "LON"
+            ]
+        }
+    },
+    {
+        "name": "almLon4",
+        "label": "Target position LON",
+        "type": "number",
+        "default": "0.00000",
+        "description": "Longitude of target position in decimal degrees.",
+        "category": "OBP70 Alarm",
+        "capabilities": {
+            "obp70": "true"
+        },
+        "condition": {
+            "almInstance4": [
+                "LAT",
+                "LON"
+            ]
+        }
+    },
+    {
         "name": "almLowLimit4",
         "label": "Alarm low threshold",
-        "type": "number",
-        "default": "0",
-        "description": "Low threshold for Alarm",
+        "type": "string",
+        "description": "Low threshold for Alarm.\nFormat is equal to alarm instance format, e.g. metres, knots.\nLeave empty for no threshold.",
         "category": "OBP70 Alarm",
         "capabilities": {
             "obp70": "true"
@@ -1728,9 +1857,8 @@
     {
         "name": "almHighLimit4",
         "label": "Alarm high threshold",
-        "type": "number",
-        "default": "0",
-        "description": "High threshold for Alarm",
+        "type": "string",
+        "description": "Low threshold for Alarm.\nFormat is equal to alarm instance format, e.g. metres, knots.\nLeave empty for no threshold.",
         "category": "OBP70 Alarm",
         "capabilities": {
             "obp70": "true"
@@ -1784,11 +1912,44 @@
         }
     },
     {
+        "name": "almLat5",
+        "label": "Target position LAT",
+        "type": "number",
+        "default": "0.00000",
+        "description": "Latitude of target position in decimal degrees.",
+        "category": "OBP70 Alarm",
+        "capabilities": {
+            "obp70": "true"
+        },
+        "condition": {
+            "almInstance5": [
+                "LAT",
+                "LON"
+            ]
+        }
+    },
+    {
+        "name": "almLon5",
+        "label": "Target position LON",
+        "type": "number",
+        "default": "0.00000",
+        "description": "Longitude of target position in decimal degrees.",
+        "category": "OBP70 Alarm",
+        "capabilities": {
+            "obp70": "true"
+        },
+        "condition": {
+            "almInstance5": [
+                "LAT",
+                "LON"
+            ]
+        }
+    },
+    {
         "name": "almLowLimit5",
         "label": "Alarm low threshold",
-        "type": "number",
-        "default": "0",
-        "description": "Low threshold for Alarm",
+        "type": "string",
+        "description": "Low threshold for Alarm.\nFormat is equal to alarm instance format, e.g. metres, knots.\nLeave empty for no threshold.",
         "category": "OBP70 Alarm",
         "capabilities": {
             "obp70": "true"
@@ -1797,9 +1958,8 @@
     {
         "name": "almHighLimit5",
         "label": "Alarm high threshold",
-        "type": "number",
-        "default": "0",
-        "description": "High threshold for Alarm",
+        "type": "string",
+        "description": "Low threshold for Alarm.\nFormat is equal to alarm instance format, e.g. metres, knots.\nLeave empty for no threshold.",
         "category": "OBP70 Alarm",
         "capabilities": {
             "obp70": "true"

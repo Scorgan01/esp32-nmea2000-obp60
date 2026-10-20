@@ -27,6 +27,7 @@ private:
     bool holdValues;
     String flashLED;
     bool smallDecimals;
+    String distanceFormat;
     String sBuzzerMode;
     BuzzerMode buzzerMode;
     ulong buzzerDuration;
@@ -56,6 +57,7 @@ public:
         holdValues = commonData->config->getBool(commonData->config->holdvalues);
         flashLED = commonData->config->getString(commonData->config->flashLED);
         smallDecimals = commonData->config->getBool(commonData->config->smallDecimals);
+        distanceFormat = commonData->config->getString(commonData->config->distanceFormat);
         buzzerDuration = ulong(config->getString(commonData->config->buzzerTime, "").toInt() * 1000); // user setting is in seconds
         sBuzzerMode = commonData->config->getString(commonData->config->buzzerMode);
         if (sBuzzerMode == "Off") {
@@ -201,7 +203,8 @@ public:
             if (boatAlarms->getAlarmState(alarm) == Alarms::AlarmState::ACTIVE) {
                 i++;
 
-                if (i == 1) { // increase font size for 1st alarm because this is the alarm to be acknoledged
+                if (i == 1 && !(alarm.format == Alarms::BoatDataFmt::POSITION || alarm.format == Alarms::BoatDataFmt::TIME)) {
+                    // increase font size for 1st alarm because this is the alarm to be acknoledged; <POSITION> and <TIME> alarms are too large for this font size
                     textFnt = &Ubuntu_Bold12pt8b;
                     numFnt = &DSEG7Classic_BoldItalic16pt7b;
                 } else {
@@ -214,8 +217,14 @@ public:
                 name = name.substring(0, 6); // String length limit for value name
                 String svalue = formatValue(bvalue, *commonData).svalue;
                 String unit = formatValue(bvalue, *commonData).unit; // Unit of value
-                LOG_DEBUG(GwLog::DEBUG, "PageAlarm: alarm #%d; name: %s, value: %f, svalue: %s, high limit: %f, format: %s", i, alarm.boatValue->getName().c_str(), alarm.boatValue->value,
-                    svalue, alarm.highLimit, alarm.boatValue->getFormat().c_str());
+                if (alarm.format == Alarms::BoatDataFmt::TIME) {
+                    svalue = svalue.substring(0,5); // truncate seconds from time format output
+                } else if (alarm.format == Alarms::BoatDataFmt::POSITION && distanceFormat == "m" && svalue.length() > 3) {
+                    svalue = svalue.substring(0, svalue.length() - 3); // delete digits below 1,000 (actually should be rounded, not truncated. We keep it simple.)
+                    unit = "km";
+                }
+                LOG_DEBUG(GwLog::DEBUG, "PageAlarm: alarm #%d; name: %s, value: %f, svalue: %s, high limit: %f, format: %s, unit: %s", i, alarm.boatValue->getName().c_str(), alarm.boatValue->value,
+                    svalue, alarm.highLimit, alarm.boatValue->getFormat().c_str(), unit);
 
                 getdisplay().setCursor(x + 10, y + yTabLn + lineHgt * i);
                 getdisplay().setFont(textFnt);
@@ -237,6 +246,11 @@ public:
                 tmpBVal.valid = true;
                 tmpBVal.value = threshold;
                 String sThreshold = formatValue(&tmpBVal, *commonData).svalue;
+                if (alarm.format == Alarms::BoatDataFmt::TIME) {
+                    sThreshold = sThreshold.substring(0,5); // truncate seconds from time format output
+                } else if (alarm.format == Alarms::BoatDataFmt::POSITION && distanceFormat == "m" && sThreshold.length() > 3) {
+                    sThreshold = sThreshold.substring(0, sThreshold.length() - 3); // delete digits below 1,000 (actually should be rounded, not truncated. We keep it simple.)
+                }
                 getdisplay().setFont(numFnt);
                 drawTextRalign(x + 316, y + yTabLn + lineHgt * i, sThreshold, true);        // alarm boat value threshold
                 getdisplay().setFont(&Ubuntu_Bold8pt8b);

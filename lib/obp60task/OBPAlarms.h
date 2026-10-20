@@ -31,6 +31,7 @@ public:
         DOP,
         XTE,
         TEMP,
+        TIME,
         PRESSUREBAR,
         PRESSUREPA,
         HUMIDITY,

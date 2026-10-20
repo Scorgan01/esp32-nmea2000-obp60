@@ -1601,7 +1601,7 @@
         "name": "almHighLimit1",
         "label": "Alarm high threshold",
         "type": "string",
-        "description": "High threshold for Alarm.\nFormat is equal to alarm instance format, e.g. metres, knots.\nLeave empty for no threshold.",
+        "description": "High threshold for Alarm.\nFormat is equal to alarm instance format, e.g. [m]etres, [kn]ots.\nAlarm time is [hh:mm] format.\nLeave empty for no threshold.",
         "category": "OBP60 Alarm",
         "capabilities": {
             "obp60": "true"
@@ -1702,7 +1702,7 @@
         "name": "almHighLimit2",
         "label": "Alarm high threshold",
         "type": "string",
-        "description": "Low threshold for Alarm.\nFormat is equal to alarm instance format, e.g. metres, knots.\nLeave empty for no threshold.",
+        "description": "High threshold for Alarm.\nFormat is equal to alarm instance format, e.g. [m]etres, [kn]ots.\nAlarm time is [hh:mm] format.\nLeave empty for no threshold.",
         "category": "OBP60 Alarm",
         "capabilities": {
             "obp60": "true"
@@ -1803,7 +1803,7 @@
         "name": "almHighLimit3",
         "label": "Alarm high threshold",
         "type": "string",
-        "description": "Low threshold for Alarm.\nFormat is equal to alarm instance format, e.g. metres, knots.\nLeave empty for no threshold.",
+        "description": "High threshold for Alarm.\nFormat is equal to alarm instance format, e.g. [m]etres, [kn]ots.\nAlarm time is [hh:mm] format.\nLeave empty for no threshold.",
         "category": "OBP60 Alarm",
         "capabilities": {
             "obp60": "true"
@@ -1904,7 +1904,7 @@
         "name": "almHighLimit4",
         "label": "Alarm high threshold",
         "type": "string",
-        "description": "Low threshold for Alarm.\nFormat is equal to alarm instance format, e.g. metres, knots.\nLeave empty for no threshold.",
+        "description": "High threshold for Alarm.\nFormat is equal to alarm instance format, e.g. [m]etres, [kn]ots.\nAlarm time is [hh:mm] format.\nLeave empty for no threshold.",
         "category": "OBP60 Alarm",
         "capabilities": {
             "obp60": "true"
@@ -2005,7 +2005,7 @@
         "name": "almHighLimit5",
         "label": "Alarm high threshold",
         "type": "string",
-        "description": "Low threshold for Alarm.\nFormat is equal to alarm instance format, e.g. metres, knots.\nLeave empty for no threshold.",
+        "description": "High threshold for Alarm.\nFormat is equal to alarm instance format, e.g. [m]etres, [kn]ots.\nAlarm time is [hh:mm] format.\nLeave empty for no threshold.",
         "category": "OBP60 Alarm",
         "capabilities": {
             "obp60": "true"

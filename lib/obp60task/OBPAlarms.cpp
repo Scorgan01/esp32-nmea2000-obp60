@@ -10,6 +10,9 @@ String Alarms::tempFormat = "";
 uint Alarms::buzzerPower = 0;
 ulong Alarms::alrmSuspTime = 0;
 
+static constexpr double TIME_ALARM_WINDOW = 60.0; // seconds during which a time alarm is "hit"
+static constexpr double SECONDS_PER_DAY = 86400.0;
+
 const std::map<Alarms::BoatDataFmt, double> Alarms::hysteresis = {
     { BoatDataFmt::SPEED, 1.0 },
     { BoatDataFmt::WINDSPEED, 1.0 },
@@ -24,6 +27,7 @@ const std::map<Alarms::BoatDataFmt, double> Alarms::hysteresis = {
     { BoatDataFmt::LON, 0.0003 }, // approx. 20m at Lat 54°N
     { BoatDataFmt::DISTANCE, 20 },
     { BoatDataFmt::TEMP, 5.0 },
+    { BoatDataFmt::TIME, 0.0 },
     { BoatDataFmt::PRESSUREBAR, 0.3 }, // pressure in bar
     { BoatDataFmt::PRESSUREPA, 30000.0 }, // pressure in Pa
     { BoatDataFmt::HUMIDITY, 1.0 }, // humidity in percent
@@ -33,10 +37,6 @@ const std::map<Alarms::BoatDataFmt, double> Alarms::hysteresis = {
     { BoatDataFmt::LITRE, 10 }, // volume in litres
     { BoatDataFmt::CBM, 0.01 }, // volume in cbm
 };
-
-enum class AngleZone : uint8_t { INSIDE,
-    BEYOND_HIGH,
-    BEYOND_LOW };
 
 // Initialize boat data format as a shorter version of boatValue->getFormat() standard format indicator
 static Alarms::BoatDataFmt chkFormat(GwApi::BoatValue* bValue)
@@ -68,6 +68,8 @@ static Alarms::BoatDataFmt chkFormat(GwApi::BoatValue* bValue)
         return Alarms::BoatDataFmt::XTE;
     } else if (format == "kelvinToC") {
         return Alarms::BoatDataFmt::TEMP;
+    } else if (format == "formatTime") {
+        return Alarms::BoatDataFmt::TIME;
     } else if (format == "formatXdr:P:B") {
         return Alarms::BoatDataFmt::PRESSUREBAR;
     } else if (format == "formatXdr:P:P") {
@@ -89,6 +91,12 @@ static Alarms::BoatDataFmt chkFormat(GwApi::BoatValue* bValue)
     }
 }
 
+enum class AngleZone : uint8_t {
+    INSIDE,
+    BEYOND_HIGH,
+    BEYOND_LOW
+};
+
 static AngleZone angleOutOfZone(double value, double low, double high, double margin)
 {
     double width = WindUtils::to2PI(high - low);
@@ -105,6 +113,31 @@ static AngleZone angleOutOfZone(double value, double low, double high, double ma
     double beyond = fromStart - w;
     double before = 2.0 * PI - fromStart;
     return (beyond <= before) ? AngleZone::BEYOND_HIGH : AngleZone::BEYOND_LOW;
+}
+
+// Parse "hh:mm" (24h) into seconds since midnight; returns NaN for invalid input
+static double parseTimeOfDay(const String& text)
+{
+    int h = -1, m = -1;
+    char trailing;
+    if (sscanf(text.c_str(), "%d:%d%c", &h, &m, &trailing) != 2) {
+        // "%c" catches extra characters: sscanf returns 2 only if the string consists exactly of 2 fields "h:m"
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    if (h < 0 || h > 23 || m < 0 || m > 59) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    return h * 3600.0 + m * 60.0;
+}
+
+// Check if <nowSec> (seconds of day) lies within the window [triggerSec, triggerSec + TIME_ALARM_WINDOW)
+static bool timeOfDayHit(double nowSec, double triggerSec)
+{
+    if (!std::isfinite(nowSec) || !std::isfinite(triggerSec)) {
+        return false;
+    }
+    double diff = fmod(fmod(nowSec - triggerSec, SECONDS_PER_DAY) + SECONDS_PER_DAY, SECONDS_PER_DAY);
+    return diff < TIME_ALARM_WINDOW;
 }
 
 Alarms::Alarms(BoatValueList& boatValueList, CommonData* common, GwLog* log, GwApi* api)
@@ -159,7 +192,7 @@ void Alarms::readConfig(GwConfigHandler* config)
 
         tAlarm a;
         if (instance == "LAT" || instance == "LON") {
-            a.boatValue = m_boatValueList.findValueOrCreate(POSITION_ALARM);  // For positions, we want to store the distance to the reference location as the alarm value
+            a.boatValue = m_boatValueList.findValueOrCreate(POSITION_ALARM); // For positions, we want to store the distance to the reference location as the alarm value
             a.boatValue->setFormat("mtr2nm");
         } else {
             a.boatValue = m_boatValueList.findValueOrCreate(instance);
@@ -172,12 +205,20 @@ void Alarms::readConfig(GwConfigHandler* config)
         a.alarmSet = config->getBool(noAlarmSet, false);
         a.latitude = config->getString(noAlmLat, "").toDouble();
         a.longitude = config->getString(noAlmLon, "").toDouble();
+
         String sHigh = config->getString(noHighLimit, "");
         String sLow = config->getString(noLowLimit, "");
         sHigh.trim();
         sLow.trim();
-        a.highLimit = sHigh.isEmpty() ? NO_HIGH_LIMIT : sHigh.toDouble();
-        a.lowLimit = sLow.isEmpty() ? NO_LOW_LIMIT : sLow.toDouble();
+        if (instance == "GPST") {
+            double t = parseTimeOfDay(sHigh); // Time alarm: threshold "hh:mm" (UTC), stored as seconds of day
+            a.highLimit = std::isfinite(t) ? t : NO_HIGH_LIMIT;
+            a.lowLimit = NO_LOW_LIMIT; // time alarm has no low threshold
+        } else {
+            a.highLimit = sHigh.isEmpty() ? NO_HIGH_LIMIT : sHigh.toDouble();
+            a.lowLimit = sLow.isEmpty() ? NO_LOW_LIMIT : sLow.toDouble();
+        }
+
         a.almDelay = constrain(ulong(config->getString(noAlmDelay, "").toInt() * 1000), 0UL, 10000UL); // user setting is in seconds
         a.snzTimer = ulong(config->getString(noSnzTime, "").toInt() * 1000); // user setting is in seconds
         a.state = AlarmState::INACTIVE;
@@ -195,7 +236,7 @@ void Alarms::readConfig(GwConfigHandler* config)
 
         bool hasHigh = std::isfinite(a.highLimit);
         bool hasLow = std::isfinite(a.lowLimit);
-        if (hasHigh) {
+        if (hasHigh && a.format != Alarms::BoatDataFmt::TIME) {  // only convert value if other than GPST value
             a.highLimit = convertValueToSI(a.highLimit, a.format);
         }
         if (hasLow) {
@@ -255,6 +296,13 @@ Alarms::tAlarm* Alarms::getActiveAlarm()
 // Check whether boatvalue exceeds high threshold
 bool Alarms::checkHighHit(const tAlarm& alarm, bool withHysteresis) const
 {
+    if (alarm.format == Alarms::BoatDataFmt::TIME) {
+        if (alarm.state == AlarmState::SNOOZE) {
+            return snoozeTimeOver(alarm); // Snoozed time alarm: the window reopens when the snooze period ends
+        }
+        return timeOfDayHit(alarm.boatValue->value, alarm.highLimit); // hysteresis not applicable
+    }
+
     if (alarm.format == Alarms::BoatDataFmt::COURSE || alarm.format == Alarms::BoatDataFmt::WIND) {
         if (!std::isfinite(alarm.lowLimit) || !std::isfinite(alarm.highLimit)) {
             return false; // an angle range needs both limits
@@ -278,6 +326,10 @@ bool Alarms::checkHighHit(const tAlarm& alarm, bool withHysteresis) const
 // Check whether boatvalue exceeds low threshold
 bool Alarms::checkLowHit(const tAlarm& alarm, bool withHysteresis) const
 {
+    if (alarm.format == Alarms::BoatDataFmt::TIME) {
+        return false;
+    }
+
     if (alarm.format == Alarms::BoatDataFmt::COURSE || alarm.format == Alarms::BoatDataFmt::WIND) {
         if (!std::isfinite(alarm.lowLimit) || !std::isfinite(alarm.highLimit)) {
             return false; // an angle range needs both limits
@@ -353,8 +405,11 @@ void Alarms::checkAlarms()
                     alarm.pendingHigh = highHit;
                     alarm.pendingLow = lowHit;
                     pending = true;
+                } else if (currentState == AlarmState::SNOOZE) {
+                    // Snooze expired and condition is gone (e.g. time window passed): resume monitoring
+                    setAlarmState(alarm, AlarmState::INACTIVE);
                 }
-            } else if (highCleared && lowCleared) {
+             } else if (highCleared && lowCleared) {
                 // Condition vanished (incl. hysteresis) within delay time -> no alarm
                 clearPending();
                 pending = false;
@@ -368,13 +423,16 @@ void Alarms::checkAlarms()
                 clearPending();
             }
 
+
         } else if (currentState == AlarmState::ACTIVE) {
             clearPending();
-            if (highCleared && lowCleared) {
+            if (alarm.format != Alarms::BoatDataFmt::TIME && highCleared && lowCleared) {
+                // Time alarms stay active until confirmed by the user
                 suspendAlarm(alarm);
                 alarm.hitHighLimit = false;
                 alarm.hitLowLimit = false;
             }
+
         } else {
             // INACTIVE with suspend time not over, or SNOOZE with snooze time not over
             clearPending();

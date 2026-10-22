@@ -209,7 +209,7 @@ typedef struct{
 FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata);
 FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool ignoreSimuDataSetting, String setPrecision = "");
 FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, String setPrecision);
-String formatValue(const double &value, const String &vFormat, CommonData &commondata);
+String formatValue(const double &value, const String &format, CommonData &commondata, const bool dsegFont = true);
 
 // Helper method for conversion of any data value from SI to user defined format (defined in OBP60Formatter)
 double convertValue(const double &value, const String &format, CommonData &commondata);

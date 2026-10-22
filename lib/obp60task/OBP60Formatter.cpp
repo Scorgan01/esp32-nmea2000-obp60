@@ -915,15 +915,14 @@ FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, Strin
 }
 
 // Format double value from SI to user defined format and convert to string user defined precision setting
-// Suitable for other fonts than DSEG7
-String formatValue(const double &value, const String &format, CommonData &commondata)
+String formatValue(const double &value, const String &format, CommonData &commondata, const bool dsegFont)
 {
     GwApi::BoatValue tmpBVal("dummy"); // temporary boat value for string formatter
     tmpBVal.setFormat(format);
     tmpBVal.valid = true;
     tmpBVal.value = value;
-    String sVal = formatValue(&tmpBVal, commondata, false).svalue; // Formatted value as string including unit conversion and switching decimal places
-    if (sVal.length() > 0 && sVal[0] == '!') {
+    String sVal = formatValue(&tmpBVal, commondata, false).svalue; // Formatted value as string including unit conversion and user defined precision setting
+    if (!dsegFont && (sVal.length() > 0 && sVal[0] == '!')) {
         sVal = sVal.substring(1); // cut leading "!" created at OBPFormatter; doesn't work for other fonts than DSEG7
     }
     return sVal;
@@ -938,7 +937,7 @@ double convertValue(const double &value, const String &name, const String &forma
     tmpBVal.setFormat(format);
     tmpBVal.valid = true;
     tmpBVal.value = value;
-    
+
     return formatValue(&tmpBVal, commondata, NO_SIMUDATA).cvalue; // get value (converted); ignore any simulation data setting
 }
 

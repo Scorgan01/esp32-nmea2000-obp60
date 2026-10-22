@@ -156,22 +156,20 @@ FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool 
     }
     //########################################################
     else if(value->getFormat() == "formatTime"){
-        double timeInSeconds = 0;
-        double inthr = 0;
-        double intmin = 0;
-        double intsec = 0;
-        double val = 0;
+        long timeInSeconds = 0;
+        uint8_t inthr = 0;
+        uint8_t intmin = 0;
+        uint8_t intsec = 0;
 
-        timeInSeconds = value->value + int(timeZone * 3600);
-        if (timeInSeconds > 86400) {timeInSeconds = timeInSeconds - 86400;}
-        if (timeInSeconds <  0) {timeInSeconds = timeInSeconds + 86400;}
-//        LOG_DEBUG(GwLog::DEBUG,"... formatTime value: %f tz: %f corrected timeInSeconds: %f ", value->value, timeZone, timeInSeconds);
         if (usesimudata == false) {
-            val = modf(timeInSeconds/3600.0, &inthr);
-            val = modf(val*3600.0/60.0, &intmin);
-            modf(val*60.0,&intsec);
-            snprintf(buffer, bsize, "%02.0f:%02.0f:%02.0f", inthr, intmin, intsec);
-            result.cvalue = timeInSeconds;
+            timeInSeconds = lround(value->value + timeZone * 3600.0); // round to whole seconds
+            timeInSeconds %= 86400;
+            if (timeInSeconds < 0) timeInSeconds += 86400;            // wrap to [0..86399]
+            inthr = timeInSeconds / 3600;
+            intmin = (timeInSeconds % 3600) / 60;
+            intsec = timeInSeconds % 60;
+            snprintf(buffer, bsize, "%02d:%02d:%02d", inthr, intmin, intsec);
+            result.cvalue = double(timeInSeconds);
         }
         else{
             static long sec;
@@ -181,7 +179,7 @@ FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool 
             }
             sec = sec % 60;
             snprintf(buffer, bsize, "11:36:%02i", int(sec));
-            result.cvalue = sec;
+            result.cvalue = double(sec);
             lasttime = millis();
         }
         if(timeZone == 0){

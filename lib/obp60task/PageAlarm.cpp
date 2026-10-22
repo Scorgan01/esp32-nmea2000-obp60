@@ -234,7 +234,7 @@ public:
                 getdisplay().setFont(&Ubuntu_Bold8pt8b);
                 getdisplay().print(unit);                       // alarm boat value unit
 
-                double threshold;
+                double threshold = 0.0;
                 if (boatAlarms->triggeredByHigh(alarm)) {
                     threshold = alarm.highLimit; }
                 if (boatAlarms->triggeredByLow(alarm)) {

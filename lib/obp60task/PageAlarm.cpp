@@ -203,7 +203,7 @@ public:
             if (boatAlarms->getAlarmState(alarm) == Alarms::AlarmState::ACTIVE) {
                 i++;
 
-                if (i == 1 && !(alarm.format == Alarms::BoatDataFmt::POSITION || alarm.format == Alarms::BoatDataFmt::TIME)) {
+                if (i == 1 && !(alarm.format == Alarms::BoatDataFmt::DISTANCE || alarm.format == Alarms::BoatDataFmt::TIME)) {
                     // increase font size for 1st alarm because this is the alarm to be acknoledged; <POSITION> and <TIME> alarms are too large for this font size
                     textFnt = &Ubuntu_Bold12pt8b;
                     numFnt = &DSEG7Classic_BoldItalic16pt7b;
@@ -213,48 +213,43 @@ public:
                 }
 
                 GwApi::BoatValue* bvalue = alarm.boatValue;
-                String name = xdrDelete(bvalue->getName()); // Value name
-                name = name.substring(0, 6); // String length limit for value name
+                String name = xdrDelete(bvalue->getName());     // Value name
+                name = name.substring(0, 6);                    // String length limit for value name
                 String svalue = formatValue(bvalue, *commonData).svalue;
-                String unit = formatValue(bvalue, *commonData).unit; // Unit of value
+                String unit = formatValue(bvalue, *commonData).unit; // Unit of current boat value
+                String limitUnit = unit;                        // Unit of alarm limit value; usually the same than boat value unit
                 if (alarm.format == Alarms::BoatDataFmt::TIME) {
-                    svalue = svalue.substring(0,5); // truncate seconds from time format output
-                } else if (alarm.format == Alarms::BoatDataFmt::POSITION && distanceFormat == "m" && svalue.length() > 3) {
-                    svalue = svalue.substring(0, svalue.length() - 3); // delete digits below 1,000 (actually should be rounded, not truncated. We keep it simple.)
+                    svalue = svalue.substring(0,5);             // truncate seconds from time format output
+                } else if (alarm.format == Alarms::BoatDataFmt::DISTANCE && distanceFormat == "m" && bvalue->value > 999.99) {
+                    svalue = formatValue(bvalue->value / 1000.0, bvalue->getFormat(), *commonData);
                     unit = "km";
                 }
-                LOG_DEBUG(GwLog::DEBUG, "PageAlarm: alarm #%d; name: %s, value: %f, svalue: %s, high limit: %f, format: %s, unit: %s", i, alarm.boatValue->getName().c_str(), alarm.boatValue->value,
-                    svalue, alarm.highLimit, alarm.boatValue->getFormat().c_str(), unit);
-
                 getdisplay().setCursor(x + 10, y + yTabLn + lineHgt * i);
                 getdisplay().setFont(textFnt);
                 getdisplay().print("#" + String(i));
                 getdisplay().setCursor(x + xTab1, y + yTabLn + lineHgt * i);
-                getdisplay().print(name);                   // alarm boat value name
+                getdisplay().print(name);                       // alarm boat value name
                 getdisplay().setFont(numFnt);
-                drawTextRalign(x + xTab3 - 49, y + yTabLn + lineHgt * i, svalue, true);     // current alarm boat value
+                drawTextRalign(x + xTab3 - 49, y + yTabLn + lineHgt * i, svalue, true); // current alarm boat value
                 getdisplay().setFont(&Ubuntu_Bold8pt8b);
-                getdisplay().print(unit);                   // alarm boat value unit
+                getdisplay().print(unit);                       // alarm boat value unit
 
                 double threshold;
-                if (boatAlarms->triggeredByHigh(alarm))
-                    threshold = alarm.highLimit;
-                if (boatAlarms->triggeredByLow(alarm))
-                    threshold = alarm.lowLimit;
-                GwApi::BoatValue tmpBVal(bvalue->getName()); // temporary boat value for string formatter
-                tmpBVal.setFormat(bvalue->getFormat());
-                tmpBVal.valid = true;
-                tmpBVal.value = threshold;
-                String sThreshold = formatValue(&tmpBVal, *commonData).svalue;
+                if (boatAlarms->triggeredByHigh(alarm)) {
+                    threshold = alarm.highLimit; }
+                if (boatAlarms->triggeredByLow(alarm)) {
+                    threshold = alarm.lowLimit; }
+                String sThreshold = formatValue(threshold, bvalue->getFormat(), *commonData);
                 if (alarm.format == Alarms::BoatDataFmt::TIME) {
                     sThreshold = sThreshold.substring(0,5); // truncate seconds from time format output
-                } else if (alarm.format == Alarms::BoatDataFmt::POSITION && distanceFormat == "m" && sThreshold.length() > 3) {
-                    sThreshold = sThreshold.substring(0, sThreshold.length() - 3); // delete digits below 1,000 (actually should be rounded, not truncated. We keep it simple.)
+                } else if (alarm.format == Alarms::BoatDataFmt::DISTANCE && distanceFormat == "m" && threshold > 999.99) {
+                    sThreshold = formatValue(threshold / 1000.0, bvalue->getFormat(), *commonData);
+                    limitUnit = "km";
                 }
                 getdisplay().setFont(numFnt);
                 drawTextRalign(x + 316, y + yTabLn + lineHgt * i, sThreshold, true);        // alarm boat value threshold
                 getdisplay().setFont(&Ubuntu_Bold8pt8b);
-                getdisplay().print(unit);
+                getdisplay().print(limitUnit);
 
 #if defined BOARD_OBP60S3
                 if (buzzerMode == OFF) {

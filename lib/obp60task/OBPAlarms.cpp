@@ -8,6 +8,7 @@ String Alarms::speedFormat = "";
 String Alarms::windspeedFormat = "";
 String Alarms::tempFormat = "";
 uint Alarms::buzzerPower = 0;
+double Alarms::timeZoneSec = 0.0;
 ulong Alarms::alrmSuspTime = 0;
 
 static constexpr double TIME_ALARM_WINDOW = 60.0; // seconds during which a time alarm is "hit"
@@ -111,8 +112,24 @@ static AngleZone angleOutOfZone(double value, double low, double high, double ma
         return AngleZone::INSIDE;
     }
     double beyond = fromStart - w;
-    double before = 2.0 * PI - fromStart;
+    double before = M_TWOPI - fromStart;
     return (beyond <= before) ? AngleZone::BEYOND_HIGH : AngleZone::BEYOND_LOW;
+}
+
+// Map any number of seconds (negative or beyond 24 h) to [0, 86400)
+static double secondsOfDay(double seconds) 
+{ 
+    return fmod(fmod(seconds, SECONDS_PER_DAY) + SECONDS_PER_DAY, SECONDS_PER_DAY);
+}
+
+double Alarms::timeSecToLocal(double utcSec) const
+{ 
+    return secondsOfDay(utcSec + timeZoneSec); 
+}
+
+double Alarms::timeSecToUTC(double localSec) const 
+{ 
+    return secondsOfDay(localSec - timeZoneSec); 
 }
 
 // Parse "hh:mm" (24h) into seconds since midnight; returns NaN for invalid input
@@ -171,6 +188,7 @@ void Alarms::readConfig(GwConfigHandler* config)
     windspeedFormat = config->getString(config->windspeedFormat);
     tempFormat = config->getString(config->tempFormat);
     buzzerPower = uint(config->getString(config->buzzerPower, "100").toInt());
+    timeZoneSec = double(int(config->getConfigItem(config->timeZone, true)->asFloat() * 3600.0));
     alrmSuspTime = ulong(config->getString(config->almSuspTime, "60").toInt() * 1000 * 60); // user setting is in minutes
 
     // Read alarm definition for data instances
@@ -212,7 +230,7 @@ void Alarms::readConfig(GwConfigHandler* config)
         sLow.trim();
         if (instance == "GPST") {
             double t = parseTimeOfDay(sHigh); // Time alarm: threshold "hh:mm" (UTC), stored as seconds of day
-            a.highLimit = std::isfinite(t) ? t : NO_HIGH_LIMIT;
+            a.highLimit = std::isfinite(t) ? timeSecToUTC(t) : NO_HIGH_LIMIT;
             a.lowLimit = NO_LOW_LIMIT; // time alarm has no low threshold
         } else {
             a.highLimit = sHigh.isEmpty() ? NO_HIGH_LIMIT : sHigh.toDouble();

@@ -90,6 +90,7 @@ private:
     static String windspeedFormat; // [m/s|km/h|kn|bft]
     static String tempFormat; // [K|C|F]
     static uint buzzerPower; // [0..100]
+    static double timeZoneSec; // local time offset to UTC in seconds (from config timeZone)
     static ulong alrmSuspTime; // time in millis for each alarm being suspended after confirmation
 
     static double convertValueToSI(const double value, const BoatDataFmt valueFormat); // Convert boat values from user input format to internal standard SI format
@@ -117,4 +118,6 @@ public:
     void activateAlarm(tAlarm& alarm);
     void suspendAlarm(tAlarm& alarm);
     void snoozeAlarm(tAlarm& alarm);
+    double timeSecToLocal(double utcSec) const; // Convert time in seconds of day from UTC to local
+    double timeSecToUTC(double localSec) const; // Convert time in seconds of day from local to UTC
 };

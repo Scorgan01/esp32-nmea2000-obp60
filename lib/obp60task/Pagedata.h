@@ -207,7 +207,7 @@ typedef struct{
 
 // Formatter for boat values
 FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata);
-FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool ignoreSimuDataSetting);
+FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, bool ignoreSimuDataSetting, String setPrecision = "");
 FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, String setPrecision);
 String formatValue(const double &value, const String &vFormat, CommonData &commondata);
 

@@ -40,7 +40,7 @@ const std::map<Alarms::BoatDataFmt, double> Alarms::hysteresis = {
 };
 
 // Initialize boat data format as a shorter version of boatValue->getFormat() standard format indicator
-static Alarms::BoatDataFmt chkFormat(GwApi::BoatValue* bValue)
+static Alarms::BoatDataFmt initFormat(GwApi::BoatValue* bValue)
 {
     String format = bValue->getFormat();
     String name = bValue->getName();
@@ -55,7 +55,7 @@ static Alarms::BoatDataFmt chkFormat(GwApi::BoatValue* bValue)
         return Alarms::BoatDataFmt::WIND;
     } else if (format == "formatDepth") {
         return Alarms::BoatDataFmt::DEPTH;
-    } else if (format == "formatRot") {
+    } else if (format == "formatRot" || format.startsWith("formatXdr:A")) {
         return Alarms::BoatDataFmt::ROTATION;
     } else if (format == "formatLatitude") {
         return Alarms::BoatDataFmt::LAT;
@@ -133,7 +133,7 @@ double Alarms::timeSecToUTC(double localSec) const
 }
 
 // Parse "hh:mm" (24h) into seconds since midnight; returns NaN for invalid input
-static double parseTimeOfDay(const String& text)
+static double convTimetoSecs(const String& text)
 {
     int h = -1, m = -1;
     char trailing;
@@ -229,7 +229,7 @@ void Alarms::readConfig(GwConfigHandler* config)
         sHigh.trim();
         sLow.trim();
         if (instance == "GPST") {
-            double t = parseTimeOfDay(sHigh); // Time alarm: threshold "hh:mm" (UTC), stored as seconds of day
+            double t = convTimetoSecs(sHigh); // Time alarm: threshold "hh:mm" (UTC), stored as seconds of day
             a.highLimit = std::isfinite(t) ? timeSecToUTC(t) : NO_HIGH_LIMIT;
             a.lowLimit = NO_LOW_LIMIT; // time alarm has no low threshold
         } else {
@@ -243,14 +243,37 @@ void Alarms::readConfig(GwConfigHandler* config)
         a.snzTime = 0;
         a.suspTime = 0;
         a.alarmTime = 0;
+        a.format = Alarms::BoatDataFmt::OTHER; // set initially to unknown; will be updated as soon as boat value is available
         a.signal = SignalType::MESSAGE;
         alarmList.push_back(a);
+
+        LOG_DEBUG(GwLog::LOG, "Alarm definition added: boat value: %s, format: %s, alarm set: %d, alarm delay: %lu, snooze timer: %lu",
+            a.boatValue->getName().c_str(), a.boatValue->getFormat().c_str(), a.alarmSet, a.almDelay, a.snzTimer);
+
     }
 
     // Update boat value list with format parameters and adjust user defined limit values -> we need corresponding boat data for proper conversion
     m_api->getBoatDataValues(m_boatValueList.numValues, m_boatValueList.allBoatValues);
+    initAlarmData();
+
+    LOG_DEBUG(GwLog::LOG, "All alarm definition data read");
+}
+
+// Initialize alarm parameters for each alarm type
+void Alarms::initAlarmData() 
+{
     for (auto& a : alarmList) {
-        a.format = chkFormat(a.boatValue);
+        if (a.initialized) {
+            continue;
+        }
+        if (a.boatValue->getFormat().isEmpty()) {
+            continue;                              // boat data not available yet, try next second
+        }
+        BoatDataFmt fmt = initFormat(a.boatValue);
+        if (fmt == Alarms::BoatDataFmt::OTHER) {
+            continue;                              // format still unknown
+        }
+        a.format = fmt;
 
         bool hasHigh = std::isfinite(a.highLimit);
         bool hasLow = std::isfinite(a.lowLimit);
@@ -283,11 +306,10 @@ void Alarms::readConfig(GwConfigHandler* config)
             a.hysteresis = 0.0;
         }
 
-        LOG_DEBUG(GwLog::LOG, "Alarm definition added: boat value: %s, format: %s, low limit: %f, high limit: %f, hysteresis: %f, alarm set: %d, alarm delay: %lu, snooze timer: %lu",
-            a.boatValue->getName().c_str(), a.boatValue->getFormat().c_str(), a.lowLimit, a.highLimit, a.hysteresis, a.alarmSet, a.almDelay, a.snzTimer);
+        a.initialized = true;
+        LOG_DEBUG(GwLog::LOG, "Alarm initialized: boat value: %s, format: %s, alarm format: %d, low limit: %.2f, high limit: %.2f, hysteresis: %.2f",
+            a.boatValue->getName().c_str(), a.boatValue->getFormat().c_str(), a.format, a.lowLimit, a.highLimit, a.hysteresis);
     }
-
-    LOG_DEBUG(GwLog::LOG, "All alarm definition data read");
 }
 
 // Get alarm definition for <index>
@@ -372,6 +394,8 @@ bool Alarms::checkLowHit(const tAlarm& alarm, bool withHysteresis) const
 // Test current boat values for alarm conditions and activate alarm flag
 void Alarms::checkAlarms()
 {
+    initAlarmData(); // We need to test and perform alarm data initialization for boat data types which have not been available at device startup
+
     for (auto& alarm : alarmList) {
         LOG_DEBUG(GwLog::DEBUG, "checkAlarms: boat value: %s, low limit: %.2f, high limit: %.2f, value: %.2f, valid: %d, set: %d",
             alarm.boatValue->getName().c_str(), alarm.lowLimit, alarm.highLimit, alarm.boatValue->value, alarm.boatValue->valid, alarm.alarmSet);
@@ -560,10 +584,14 @@ double Alarms::convertValueToSI(const double value, const BoatDataFmt valueForma
         result *= DEG_TO_RAD;
         result = WindUtils::to2PI(result);
 
-    } else if (valueFormat == Alarms::BoatDataFmt::WIND) {
+    } else if (valueFormat == Alarms::BoatDataFmt::WIND || valueFormat == Alarms::BoatDataFmt::ROTATION) {
         result *= DEG_TO_RAD;
         result = WindUtils::to2PI(result);
         // result = WindUtils::toPI(result); // currently wind angles are stored in [0..2PI] format
+
+    } else if (valueFormat == Alarms::BoatDataFmt::ROTATION) {
+        result *= DEG_TO_RAD;
+        result = WindUtils::toPI(result);
 
     } else if (valueFormat == Alarms::BoatDataFmt::DEPTH) {
         if (lengthFormat == "ft") {

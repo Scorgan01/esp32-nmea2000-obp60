@@ -66,6 +66,7 @@ public:
         bool buzzerOn = false; // Indicates buzzer to ring for this alarm occurence
         ulong buzzerTime = 0; // Stores start time of buzzer sound
         uint8_t alarmTime = 0; // seconds until alarm disappeares without user interaction (for future use)
+        bool initialized = false; // Indicates a successfully initialized alarm
     };
 
 private:
@@ -99,6 +100,7 @@ public:
     Alarms(BoatValueList& boatValueList, CommonData* common, GwLog* log, GwApi* api);
     ~Alarms() = default;
     void readConfig(GwConfigHandler* config);
+    void initAlarmData(); // Initialize alarm parameters for each alarm type
     std::vector<tAlarm>* getAlarmList() { return &alarmList; } // Get full list of defined alarms
     int getNoOfAlarms() { return alarmList.size(); } // Get number of user defined alarms
     tAlarm* getAlarm(int index); // Get alarm data for <index>

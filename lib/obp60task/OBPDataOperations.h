@@ -37,8 +37,8 @@ public:
 class HstryBuf {
 private:
     RingBuffer<uint16_t> hstryBuf; // Circular buffer to store history values
-    movingAvg<double> chrtAvg {6}; // Store average of the last 6 chart values if chart gradient shall be smoothed
-    movingAvgAngle<double> chrtAvgAngle {6}; // Store average of the last 6 chart values (angle data) if chart gradient shall be smoothed
+    movingAvg<double> chrtAvg { 6 }; // Store average of the last 6 chart values if chart gradient shall be smoothed
+    movingAvgAngle<double> chrtAvgAngle { 6 }; // Store average of the last 6 chart values (angle data) if chart gradient shall be smoothed
     String boatDataName;
     double hstryMin;
     double hstryMax;
@@ -116,70 +116,47 @@ public:
 
 class WindUtils {
 private:
+    static constexpr double MIN_SOG = 0.1; // SOG below this value (m/s) is assumed to be data noise from GPS sensor
+
     GwApi::BoatValue *twaBVal, *twsBVal, *twdBVal, *maxtwsBVal;
     GwApi::BoatValue *awaBVal, *awsBVal, *awdBVal;
     GwApi::BoatValue *cogBVal, *stwBVal, *sogBVal, *hdtBVal, *hdmBVal, *varBVal;
     GwApi::BoatValue *vmgBVal, *vmcBVal, *btwBVal;
-    double twd, tws, twa, awd;
-    static constexpr double DBL_MAX = std::numeric_limits<double>::max();
-    GwLog* logger;
+    double maxTws = 0.0; // own maxTWS value in obp user task; core gateway resets this MaxTws each second if true wind data is not available
 
-    // specify missing data for boat value type AWD; AWD is not available in core gateway and need to be specified here
-    void defineOwnBoatVals() {
-        awdBVal->setFormat("formatCourse");
-        awdBVal->valid = false;
-        vmgBVal->setFormat("formatKnots");
-        vmgBVal->valid = false;
-        vmcBVal->setFormat("formatKnots");
-        vmcBVal->valid = false;
+    static void setValue(GwApi::BoatValue* bval, double value)
+    {
+        bval->value = value;
+        bval->valid = true;
     }
-    void setMaxWs(const double* wsVal, GwApi::BoatValue* wsMaxValue);
+    bool calcHDT(); // Derive HDT in place from HDT (if available), HDM + VAR, HDM only, or COG; false if not possible
+    bool calcWD(const GwApi::BoatValue* windAng, GwApi::BoatValue* windDir); // Calc A/T wind direction; false if [A/T]WA or HDT not valid
+    bool calcTrueWinds(); // Calculate true winds from apparent winds; fills only missing true wind values; false if HDT, AWS or AWD not valid
+
+    //    void setMaxWs(const double* wsVal, GwApi::BoatValue* wsMaxValue);
 
 public:
-    WindUtils(BoatValueList* boatValues, GwLog* log)
-        : logger(log)
-    {
-        twaBVal = boatValues->findValueOrCreate("TWA");
-        twsBVal = boatValues->findValueOrCreate("TWS");
-        twdBVal = boatValues->findValueOrCreate("TWD");
-        awaBVal = boatValues->findValueOrCreate("AWA");
-        awsBVal = boatValues->findValueOrCreate("AWS");
-        cogBVal = boatValues->findValueOrCreate("COG");
-        stwBVal = boatValues->findValueOrCreate("STW");
-        sogBVal = boatValues->findValueOrCreate("SOG");
-        hdtBVal = boatValues->findValueOrCreate("HDT");
-        hdmBVal = boatValues->findValueOrCreate("HDM");
-        varBVal = boatValues->findValueOrCreate("VAR");
-        btwBVal = boatValues->findValueOrCreate("BTW");
-
-        // boat values which will be calculated here
-        maxtwsBVal = boatValues->findValueOrCreate("MaxTws");
-        awdBVal = boatValues->findValueOrCreate("AWD");
-        vmgBVal = boatValues->findValueOrCreate("VMG");
-        vmcBVal = boatValues->findValueOrCreate("VMC");
-        defineOwnBoatVals();
-    };
+    WindUtils(BoatValueList* boatValues, GwLog* log);
 
     static double to2PI(double a);
     static double toPI(double a);
     static double to360(double a);
     static double to180(double a);
 
-    void toCart(const double* phi, const double* r, double* x, double* y);
-    void toPol(const double* x, const double* y, double* phi, double* r);
-    void addPolar(const double* phi1, const double* r1,
-        const double* phi2, const double* r2,
-        double* phi, double* r);
-    void calcTwdSA(const double* AWA, const double* AWS, const double* AWD, const double* CTW, const double* STW, const double* HDT,
-        double* TWA, double* TWS, double* TWD);
-    bool calcHDT(const double* hdmVal, const double* varVal, const double* cogVal, const double* sogVal, double* hdtVal);
-    bool calcWD(const double* waVal, const double* hdtVal, double* wdVal);
-    bool calcTrueWinds(const double* awaVal, const double* awsVal, const double* awd,
-        const double* cogVal, const double* stwVal, const double* sogVal, const double* hdtVal,
-        double* twdVal, double* twsVal, double* twaVal);
+    static void toCart(double phi, double r, double& x, double& y);
+    static void toPol(double x, double y, double& phi, double& r);
+    static void addPolar(double phi1, double r1, double phi2, double r2, double& phi, double& r);
+
+    static void calcTwdSA(double awd, double aws, double ctw, double stw, double hdt,
+        double& twa, double& tws, double& twd); // True wind direction, speed, angle from apparent wind
     bool handleWinds(bool calcWinds);
-    void calcOwnBoatVals() { setMaxWs(); calcVMG(); calcVMC(); }
-    void setMaxWs() { setMaxWs(&tws, maxtwsBVal); }
+    void calcOwnBoatVals()
+    {
+        handleMaxTWS();
+        calcVMG();
+        calcVMC();
+    }
+    void handleMaxTWS();
     bool calcVMG();
     bool calcVMC();
 };

@@ -15,12 +15,14 @@ struct PSRAMAllocator {
 
     T* allocate(std::size_t n)
     {
-        void* ptr = heap_caps_malloc(n * sizeof(T), MALLOC_CAP_SPIRAM);
-        if (!ptr) {
-            return nullptr;
-        } else {
-            return static_cast<T*>(ptr);
+        void* p = heap_caps_malloc(n * sizeof(T), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (!p) {
+            p = std::malloc(n * sizeof(T)); // fallback: internal RAM
         }
+        if (!p) {
+            return nullptr;
+        }
+    return static_cast<T*>(p);
     }
 
     void deallocate(T* p, std::size_t) noexcept

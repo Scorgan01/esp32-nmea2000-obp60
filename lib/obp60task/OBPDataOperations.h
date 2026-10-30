@@ -6,6 +6,7 @@
 #include "movingAvg.h"
 #include <map>
 #include <unordered_map>
+#include "esp_heap_caps.h"
 
 // Calibration of boat data values, when user setting available
 // supported boat data types are: AWA, AWS, COG, DBS, DBT, HDM, HDT, PRPOS, RPOS, SOG, STW, TWA, TWS, TWD, WTemp
@@ -33,108 +34,85 @@ public:
     bool smoothInstance(GwApi::BoatValue* boatDataValue); // Smooth single boat data value
 };
 
+struct tHistoryParams {
+    int hstryUpdFreq;    // update frequency of history buffer in ms
+    double mltplr;       // specifies actual value precision being storable:
+                         // [10000: 0 - 6.5535 | 1000: 0 - 65.535 | 100: 0 - 655.35 | 10: 0 - 6553.5 | 1: 0 - 65535 | 0.1: 0 - 655350]
+    double bufferMinVal; // minimum valid data value
+    double bufferMaxVal; // maximum valid data value
+    bool isAngle;        // angle data: requires circular averaging when smoothing is enabled
+};
+
 // Class for a single history buffer of boat values
 class HstryBuf {
+public:
+    HstryBuf(const String& name, int size, BoatValueList* boatValues, bool smooth, GwLog* log);
+    HstryBuf(const HstryBuf&) = delete;
+    HstryBuf& operator=(const HstryBuf&) = delete;
+
+    void init(const String& format, const tHistoryParams& params); // Complete initialization once format of the boat value is known
+    void add(double value);
+    void handle(bool useSimuData, CommonData& common);
+    RingBuffer<uint16_t>& ringBuffer() { return hstryBuf; }
+    const RingBuffer<uint16_t>& ringBuffer() const { return hstryBuf; }
+
+    const String& getName() const { return boatDataName; };
+    String currentFormat() const { return String(boatValue->getFormat().c_str()); }; // format of the underlying boat value; empty until first data update
+    bool hasMetaData() const { return state == State::Ready; }
+    bool isPending() const { return state == State::Pending; }
+    void markUnsupported() { state = State::Unsupported; }
+
 private:
+    enum class State : uint8_t {
+        Pending,        // waiting for boat value to become available
+        Ready,          // metadata set
+        Unsupported     // format not in parameter table; never retried
+    };
+
     RingBuffer<uint16_t> hstryBuf; // Circular buffer to store history values
     movingAvg<double> chrtAvg { 6 }; // Store average of the last 6 chart values if chart gradient shall be smoothed
     movingAvgAngle<double> chrtAvgAngle { 6 }; // Store average of the last 6 chart values (angle data) if chart gradient shall be smoothed
-    String boatDataName;
-    double hstryMin;
-    double hstryMax;
-    bool metaDataDefined = false;
-    bool smoothing = false;
+
+    const String boatDataName;
+    bool smoothing;
+    double hstryMin = 0.0;
+    double hstryMax = 0.0;
+    unsigned long updFreqMs = 0;
+    unsigned long bufUpdateTime = 0;
     bool isTypeAngle = false;
-    unsigned long bufUpdateTime;
-    GwApi::BoatValue* boatValue;
-    GwLog* logger;
+    State state = State::Pending;
 
-    friend class HstryBuffers;
-
-public:
-    HstryBuf(const String& name, const int size, BoatValueList* boatValues, const bool smooth, GwLog* log);
-    bool hasMetaData() const { return metaDataDefined; };
-    void init(const String& format, int updFreq, double mltplr, double minVal, double maxVal);
-    void add(double value);
-    void handle(bool useSimuData, CommonData& common);
+    GwApi::BoatValue* boatValue = nullptr;
+    GwApi::BoatValue simValue;
+    GwLog* logger = nullptr;
 };
 
 // Manage list of history buffers for supported boat data; used by boat data charts
 class HstryBuffers {
-private:
-    std::map<String, std::unique_ptr<HstryBuf>> hstryBuffers;
-    int size; // size of all history buffers
-    BoatValueList* boatValueList;
-    GwLog* logger;
-
-    struct HistoryParams {
-        int hstryUpdFreq; // update frequency of history buffer (documentation only)
-        double mltplr; // specifies actual value precision being storable:
-                       // [10000: 0 - 6.5535 | 1000: 0 - 65.535 | 100: 0 - 655.35 | 10: 0 - 6553.5 | 1: 0 - 65535 | 0.1: 0 - 655350]
-        double bufferMinVal; // minimum valid data value
-        double bufferMaxVal; // maximum valid data value
-    };
-
-    std::map<String, HistoryParams> bufferParams = {
-        { "AWA", { 1000, 10000, 0.0, M_TWOPI } },
-        { "AWD", { 1000, 10000, 0.0, M_TWOPI } },
-        { "AWS", { 1000, 1000, 0.0, 65.0 } },
-        { "BTW", { 1000, 10000, 0.0, M_TWOPI } },
-        { "COG", { 1000, 10000, 0.0, M_TWOPI } },
-        { "DBK", { 1000, 100, 0.0, 650.0 } },
-        { "DBS", { 1000, 100, 0.0, 650.0 } },
-        { "DBT", { 1000, 100, 0.0, 650.0 } },
-        { "DPT", { 1000, 100, 0.0, 650.0 } },
-        { "HDM", { 1000, 10000, 0.0, M_TWOPI } },
-        { "HDT", { 1000, 10000, 0.0, M_TWOPI } },
-        { "ROT", { 1000, 10000, -M_PI / 180.0 * 99.0, M_PI / 180.0 * 99.0 } }, // min/max is -/+ 99 degrees for "rate of turn"
-        { "SOG", { 1000, 1000, 0.0, 65.0 } },
-        { "STW", { 1000, 1000, 0.0, 65.0 } },
-        { "TWA", { 1000, 10000, 0.0, M_TWOPI } },
-        { "TWD", { 1000, 10000, 0.0, M_TWOPI } },
-        { "TWS", { 1000, 1000, 0.0, 65.0 } },
-        { "VMC", { 1000, 1000, 0.0, 65.0 } },
-        { "VMG", { 1000, 1000, 0.0, 65.0 } },
-        { "WTemp", { 1000, 100, 263.15, 403.15 } }, // water temp [-10..130] °C
-        { "formatXdr:C:K", { 1000, 100, 223.15, 423.15 } }, // temperature [-50..150] deg celsius
-        { "formatXdr:P:B", { 60000, 1000, 0, 65.0 } }, // pressure [0..65] bar
-        { "formatXdr:P:P", { 60000, 0.1, 0, 650000 } }, // pressure [0..6500] hPa
-        { "formatXdr:H:P", { 1000, 100, 0, 100 } }, // humidity [0..100] percent
-        { "formatXdr:I:A", { 1000, 100, 0, 650.0 } }, // current [0..650] amperes
-        { "formatXdr:U:V", { 1000, 1000, 0, 65.0 } }, // voltage [0..65] volts
-        { "formatXdr:T:R", { 1000, 1, 0, 30000 } }, // tachometer [0..30000] rpm
-        { "formatXdr:V:L", { 10000, 100, 0, 650 } }, // volume [0..650] litres
-        { "formatXdr:V:M", { 10000, 10000, 0, 6.50 } }, // volume [0..6.5] m^3
-    };
-
 public:
-    HstryBuffers(int size, BoatValueList* boatValues, GwLog* log);
+    HstryBuffers(int bufSize, BoatValueList* boatValues, GwLog* log);
     void addBuffer(const String& name, const bool smooth);
     void handleHstryBufs(bool useSimuData, CommonData& common);
     RingBuffer<uint16_t>* getBuffer(const String& name);
+    const RingBuffer<uint16_t>* getBuffer(const String& name) const;
+
+private:
+    using ParamMap = std::map<String, tHistoryParams, std::less<String>,
+        PSRAMAllocator<std::pair<const String, tHistoryParams>>>;
+    static constexpr const char* XDR_PREFIX = "xdr";
+
+    std::map<String, std::unique_ptr<HstryBuf>> hstryBuffers;
+    int bufferSize; // size of each history buffer
+    bool pendingInit = false; // true while at least one buffer is waiting for metadata
+    BoatValueList* boatValueList;
+    GwLog* logger = nullptr;
+
+    static const ParamMap& bufferParams(); // Parameter table; built on first use
+    static const tHistoryParams* findNgetParams(const String& key); // Look up buffer parameters by key
+    void initBuffers(); // Try to initialize all buffers still waiting for metadata
 };
 
 class WindUtils {
-private:
-    static constexpr double MIN_SOG = 0.1; // SOG below this value (m/s) is assumed to be data noise from GPS sensor
-
-    GwApi::BoatValue *twaBVal, *twsBVal, *twdBVal, *maxtwsBVal;
-    GwApi::BoatValue *awaBVal, *awsBVal, *awdBVal;
-    GwApi::BoatValue *cogBVal, *stwBVal, *sogBVal, *hdtBVal, *hdmBVal, *varBVal;
-    GwApi::BoatValue *vmgBVal, *vmcBVal, *btwBVal;
-    double maxTws = 0.0; // own maxTWS value in obp user task; core gateway resets this MaxTws each second if true wind data is not available
-
-    static void setValue(GwApi::BoatValue* bval, double value)
-    {
-        bval->value = value;
-        bval->valid = true;
-    }
-    bool calcHDT(); // Derive HDT in place from HDT (if available), HDM + VAR, HDM only, or COG; false if not possible
-    bool calcWD(const GwApi::BoatValue* windAng, GwApi::BoatValue* windDir); // Calc A/T wind direction; false if [A/T]WA or HDT not valid
-    bool calcTrueWinds(); // Calculate true winds from apparent winds; fills only missing true wind values; false if HDT, AWS or AWD not valid
-
-    //    void setMaxWs(const double* wsVal, GwApi::BoatValue* wsMaxValue);
-
 public:
     WindUtils(BoatValueList* boatValues, GwLog* log);
 
@@ -159,4 +137,22 @@ public:
     void handleMaxTWS();
     bool calcVMG();
     bool calcVMC();
+    
+private:
+    static constexpr double MIN_SOG = 0.1; // SOG below this value (m/s) is assumed to be data noise from GPS sensor
+
+    GwApi::BoatValue *twaBVal, *twsBVal, *twdBVal, *maxtwsBVal;
+    GwApi::BoatValue *awaBVal, *awsBVal, *awdBVal;
+    GwApi::BoatValue *cogBVal, *stwBVal, *sogBVal, *hdtBVal, *hdmBVal, *varBVal;
+    GwApi::BoatValue *vmgBVal, *vmcBVal, *btwBVal;
+    double maxTws = 0.0; // own maxTWS value in obp user task; core gateway resets this MaxTws each second if true wind data is not available
+
+    static void setValue(GwApi::BoatValue* bval, double value)
+    {
+        bval->value = value;
+        bval->valid = true;
+    }
+    bool calcHDT(); // Derive HDT in place from HDT (if available), HDM + VAR, HDM only, or COG; false if not possible
+    bool calcWD(const GwApi::BoatValue* windAng, GwApi::BoatValue* windDir); // Calc A/T wind direction; false if [A/T]WA or HDT not valid
+    bool calcTrueWinds(); // Calculate true winds from apparent winds; fills only missing true wind values; false if HDT, AWS or AWD not valid
 };

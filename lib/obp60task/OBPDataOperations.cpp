@@ -213,25 +213,37 @@ bool CalibrationData::smoothInstance(GwApi::BoatValue* boatDataValue)
 
 // --- Class HstryBuf ---------------
 HstryBuf::HstryBuf(const String& name, const int size, BoatValueList* boatValues, const bool smooth, GwLog* log)
-    : logger(log)
+    : boatDataName(name)
     , smoothing(smooth)
-    , boatDataName(name)
+    , simValue(name)
+    , logger(log)
 {
     hstryBuf.resize(size);
-    boatValue = boatValues->findValueOrCreate(name);
+    boatValue = boatValues->findValueOrCreate(boatDataName);
 }
 
-void HstryBuf::init(const String& format, int updFreq, double mltplr, double minVal, double maxVal)
+void HstryBuf::init(const String& format, const tHistoryParams& params)
 {
-    hstryBuf.setMetaData(boatDataName, format, updFreq, mltplr, minVal, maxVal);
-    hstryMin = minVal;
-    hstryMax = maxVal;
-    bufUpdateTime = 0;
+    if (state == State::Ready) {
+        return; // Buffer initialization already complete
+    }
+
+    hstryBuf.setMetaData(boatDataName, format, params.hstryUpdFreq, params.mltplr, params.bufferMinVal, 
+        params.bufferMaxVal);
+    hstryMin = params.bufferMinVal;
+    hstryMax = params.bufferMaxVal;
+    updFreqMs = static_cast<ulong>(params.hstryUpdFreq);
+    isTypeAngle = params.isAngle;
+
+    bufUpdateTime = millis() - updFreqMs;
+
     if (!boatValue->valid) {
         boatValue->value = std::numeric_limits<double>::max(); // mark current value invalid
     }
 
-    isTypeAngle = format == "formatCourse" || format == "formatWind" || format == "formatRot";
+    // Format is known now; set it once for the reusable simulation value
+    simValue.setFormat(boatValue->getFormat());
+
     // initialize correct variant of buffer for averaging history data
     if (smoothing) {
         if (isTypeAngle) {
@@ -240,122 +252,174 @@ void HstryBuf::init(const String& format, int updFreq, double mltplr, double min
             chrtAvg.begin();
         }
     }
+
+    state = State::Ready;
+
+    LOG_DEBUG(GwLog::LOG, "HstryBuf::init: metadata added: name: %s, format: %s, frequency: %d, multiplier: %f, min value: %.2f, max value: %.2f",
+        boatDataName.c_str(), format.c_str(), params.hstryUpdFreq, params.mltplr, params.bufferMinVal, params.bufferMaxVal);
 }
 
 void HstryBuf::add(const double value)
 {
-    double bufVal = value;
-
-    if (value >= hstryMin && value <= hstryMax) {
-
-        if (smoothing) {
-            if (isTypeAngle) {
-                bufVal = chrtAvgAngle.reading(value);
-            } else {
-                bufVal = chrtAvg.reading(value);
-            }
-        }
-
-        hstryBuf.add(bufVal);
-        // LOG_DEBUG(GwLog::DEBUG, "HstryBuf::add:  name: %s, value: %.3f, value buffer: %.3f", hstryBuf.getName(), value, hstryBuf.getLast());
+    if (!(value >= hstryMin && value <= hstryMax)) {
+        return;
     }
+
+    double bufVal = value;
+    if (smoothing) {
+        bufVal = isTypeAngle ? chrtAvgAngle.reading(value) : chrtAvg.reading(value);
+    }
+
+    hstryBuf.add(bufVal);
+    // LOG_DEBUG(GwLog::DEBUG, "HstryBuf::add:  name: %s, value: %.3f, value buffer: %.3f", boatDataName.c_str(), value, hstryBuf.getLast());
 }
 
 void HstryBuf::handle(const bool useSimuData, CommonData& common)
 {
-    if ((millis() - bufUpdateTime) >= hstryBuf.getUpdFreq()) {
+    const unsigned long now = millis();
 
-        bufUpdateTime = millis();
+    if ((now - bufUpdateTime) < updFreqMs) {
+        return;
+    }
+    bufUpdateTime = now;
 
-        if (boatValue->valid) {
-            add(boatValue->value);
-
-        } else if (useSimuData) { // add simulated value to history buffer
-            std::unique_ptr<GwApi::BoatValue> tmpBVal; // Temp variable to get formatted and converted data value from OBP60Formatter
-            tmpBVal = std::unique_ptr<GwApi::BoatValue>(new GwApi::BoatValue(boatDataName)); // create temporary boat value for retrieval of simulation value
-            tmpBVal->setFormat(boatValue->getFormat());
-            tmpBVal->value = boatValue->value;
-            tmpBVal->valid = boatValue->valid;
-            double simSIValue = formatValue(tmpBVal.get(), common).value; // simulated value is generated at <formatValue>; here: retreive SI value
-            add(simSIValue);
-        } else {
-            // TODO: add invalid (DBL_MAX) value; this will mark periods of missing data in buffer together with a timestamp
-        }
+    if (boatValue->valid) {
+        add(boatValue->value);
+    } else if (useSimuData) { // add simulated value to history buffer
+        simValue.value = boatValue->value;
+        simValue.valid = boatValue->valid;
+        double simSIValue = formatValue(&simValue, common).value; // simulated value is generated at <formatValue>; here: retreive SI value
+        add(simSIValue);
+    } else {
+        // TODO: add invalid (DBL_MAX) value; this will mark periods of missing data in buffer together with a timestamp
     }
 }
 // --- End Class HstryBuf ---------------
 
 // --- Class HstryBuffers ---------------
 HstryBuffers::HstryBuffers(const int size, BoatValueList* boatValues, GwLog* log)
-    : size(size)
+    : bufferSize(size)
     , boatValueList(boatValues)
-    , logger(log) { };
+    , logger(log) { }
+
+// Function-local static; built once on first use, after heap and PSRAM are initialized;shared by all HstryBuffers instances.
+const HstryBuffers::ParamMap& HstryBuffers::bufferParams()
+{
+    static const ParamMap params = {
+        //  name { upd [ms], mltplr, min, max, isAngle }
+        { "AWA", { 1000, 10000, 0.0, M_TWOPI, true } },
+        { "AWD", { 1000, 10000, 0.0, M_TWOPI, true } },
+        { "AWS", { 1000, 1000, 0.0, 65.0, false } },
+        { "BTW", { 1000, 10000, 0.0, M_TWOPI, true } },
+        { "COG", { 1000, 10000, 0.0, M_TWOPI, true } },
+        { "DBK", { 1000, 100, 0.0, 650.0, false } },
+        { "DBS", { 1000, 100, 0.0, 650.0, false } },
+        { "DBT", { 1000, 100, 0.0, 650.0, false } },
+        { "DPT", { 1000, 100, 0.0, 650.0, false } },
+        { "HDM", { 1000, 10000, 0.0, M_TWOPI, true } },
+        { "HDT", { 1000, 10000, 0.0, M_TWOPI, true } },
+        { "ROT", { 1000, 10000, -M_PI / 180.0 * 99.0, M_PI / 180.0 * 99.0, true } }, // min/max is -/+ 99 degrees for "rate of turn"
+        { "SOG", { 1000, 1000, 0.0, 65.0, false } },
+        { "STW", { 1000, 1000, 0.0, 65.0, false } },
+        { "TWA", { 1000, 10000, 0.0, M_TWOPI, true } },
+        { "TWD", { 1000, 10000, 0.0, M_TWOPI, true } },
+        { "TWS", { 1000, 1000, 0.0, 65.0, false } },
+        { "VMC", { 1000, 1000, 0.0, 65.0, false } },
+        { "VMG", { 1000, 1000, 0.0, 65.0, false } },
+        { "WTemp", { 1000, 100, 263.15, 403.15, false } }, // water temp [-10..130] °C
+        { "formatXdr:C:K", { 1000, 100, 223.15, 423.15, false } }, // temperature [-50..150] deg celsius
+        { "formatXdr:P:B", { 60000, 1000, 0, 65.0, false } }, // pressure [0..65] bar
+        { "formatXdr:P:P", { 60000, 0.1, 0, 650000, false } }, // pressure [0..6500] hPa
+        { "formatXdr:H:P", { 1000, 100, 0, 100, false } }, // humidity [0..100] percent
+        { "formatXdr:I:A", { 1000, 100, 0, 650.0, false } }, // current [0..650] amperes
+        { "formatXdr:U:V", { 1000, 1000, 0, 65.0, false } }, // voltage [0..65] volts
+        { "formatXdr:T:R", { 1000, 1, 0, 30000, false } }, // tachometer [0..30000] rpm
+        { "formatXdr:V:L", { 10000, 100, 0, 650, false } }, // volume [0..650] litres
+        { "formatXdr:V:M", { 10000, 10000, 0, 6.50, false } }, // volume [0..6.5] m^3
+    };
+    return params;
+}
+
+const tHistoryParams* HstryBuffers::findNgetParams(const String& key)
+{
+    const ParamMap& params = bufferParams();
+    auto it = params.find(key);
+    return (it != params.end()) ? &it->second : nullptr;
+}
 
 // Create history buffer for boat data type
 void HstryBuffers::addBuffer(const String& name, const bool smooth)
 {
-    if (HstryBuffers::getBuffer(name) != nullptr) { // buffer for this data type already exists
+    // boat data type not in params list -> not supported for history buffer
+    if (!name.startsWith(XDR_PREFIX) && findNgetParams(name) == nullptr) {
         return;
     }
-
-    auto it = bufferParams.find(name);
-    if (it == bufferParams.end() && !name.startsWith("xdr")) { // requested boat data type is not supported in list of <bufferParams>
-                                                               // we take any "XDR" type, though
+    if (hstryBuffers.find(name) != hstryBuffers.end()) { // buffer for this data type already exists
         return;
     }
 
     // create buffer only; initialization with metadata can only be done later after boat data have been updated first time
-    hstryBuffers[name] = std::unique_ptr<HstryBuf>(new HstryBuf(name, size, boatValueList, smooth, logger));
+    hstryBuffers[name] = std::unique_ptr<HstryBuf>(new HstryBuf(name, bufferSize, boatValueList, smooth, logger));
+    pendingInit = true;
 
-    LOG_DEBUG(GwLog::LOG, "HstryBuffers: new buffer added: name: %s", name);
+    LOG_DEBUG(GwLog::LOG, "HstryBuffers: new buffer added: name: %s", name.c_str());
+}
+
+void HstryBuffers::initBuffers()
+{
+    bool stillPending = false;
+
+    for (auto& entry : hstryBuffers) {
+        HstryBuf& buf = *entry.second;
+        if (!buf.isPending()) {
+            continue; // buffer metadata is already initialized
+        }
+
+        const String format = buf.currentFormat();
+        if (format.isEmpty()) { // no boat data available yet; retry on next call
+            stillPending = true;
+            continue;
+        }
+
+        // XDR values are looked up by their format, all others by their name
+        const String& key = buf.getName().startsWith(XDR_PREFIX) ? format : buf.getName();
+        const tHistoryParams* params = findNgetParams(key);
+        if (params == nullptr) {
+            buf.markUnsupported(); // format is not supported; skip this buffer permanently
+            LOG_DEBUG(GwLog::LOG, "HstryBuffers: unsupported format, buffer disabled: name: %s, format: %s", buf.getName().c_str(), format.c_str());
+            continue;
+        }
+
+        buf.init(format, *params);
+    }
+    pendingInit = stillPending;
 }
 
 // Handle all registered history buffers
 void HstryBuffers::handleHstryBufs(bool useSimuData, CommonData& common)
 {
-    for (auto& bufMap : hstryBuffers) {
-        auto& buf = bufMap.second;
+    if (pendingInit) { 
+        initBuffers(); // not all buffers have been initialized yet
+    }
 
-        if (!buf->hasMetaData()) { // meta data initialization for buffer has not been done before
-
-            String valueFormat = boatValueList->findValueOrCreate(buf->boatDataName)->getFormat().c_str();
-            // LOG_DEBUG(GwLog::DEBUG, "HstryBuffers: value name: %s, format: %s", boatValueList->findValueOrCreate(buf->boatDataName)->getName().c_str(), valueFormat);
-
-            if (!valueFormat.isEmpty()) {
-                String lookupKey = buf->boatDataName;
-                if (buf->boatDataName.startsWith("xdr")) { // current boat data is of type "XDR"
-                    lookupKey = valueFormat;
-                }
-                auto it = bufferParams.find(lookupKey);
-                if (it == bufferParams.end()) { // requested boat data type is not supported in list of <bufferParams>
-                    return;
-                }
-                HistoryParams params = it->second; // this is the metadata for the new buffer
-
-                int hstryUpdFreq = params.hstryUpdFreq; // Update frequency for history buffers in ms
-                double mltplr = params.mltplr; // default multiplier which transforms original <double> value into buffer type format
-                double bufferMinVal = params.bufferMinVal; // Min value for this history buffer
-                double bufferMaxVal = params.bufferMaxVal; // Max value for this history buffer
-
-                hstryBuffers[buf->boatDataName]->init(valueFormat, hstryUpdFreq, mltplr, bufferMinVal, bufferMaxVal);
-                buf->metaDataDefined = true;
-                LOG_DEBUG(GwLog::LOG, "HstryBuffers::handleBufs: metadata added: name: %s, format: %s, frequency: %d, multiplier: %f, min value: %.2f, max value: %.2f", buf->boatDataName, valueFormat, hstryUpdFreq,
-                    mltplr, bufferMinVal, bufferMaxVal);
-            }
+    for (auto& entry : hstryBuffers) {
+        HstryBuf& buf = *entry.second;
+        if (buf.hasMetaData()) {
+            buf.handle(useSimuData, common);
         }
-
-        buf->handle(useSimuData, common);
     }
 }
 
 RingBuffer<uint16_t>* HstryBuffers::getBuffer(const String& name)
 {
     auto it = hstryBuffers.find(name);
-    if (it != hstryBuffers.end()) {
-        return &it->second->hstryBuf;
-    } else {
-        return nullptr;
-    }
+    return (it != hstryBuffers.end()) ? &it->second->ringBuffer() : nullptr;
+}
+
+const RingBuffer<uint16_t>* HstryBuffers::getBuffer(const String& name) const
+{
+    auto it = hstryBuffers.find(name);
+    return (it != hstryBuffers.end()) ? &it->second->ringBuffer() : nullptr;
 }
 // --- End Class HstryBuffers ---------------
 
@@ -380,6 +444,7 @@ WindUtils::WindUtils(BoatValueList* boatValues, GwLog* log)
     maxtwsBVal = boatValues->findValueOrCreate("MaxTws");
     vmgBVal = boatValues->findValueOrCreate("VMG");
     vmcBVal = boatValues->findValueOrCreate("VMC");
+
     awdBVal->setFormat("formatCourse");
     awdBVal->valid = false;
     maxtwsBVal->setFormat("formatKnots");

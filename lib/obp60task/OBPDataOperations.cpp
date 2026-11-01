@@ -1,213 +1,405 @@
 #include "OBPDataOperations.h"
 
-// --- Class CalibrationData ---------------
-CalibrationData::CalibrationData(GwLog* log)
+// --- general data helper ---------------
+
+// Read all user configuration and convert into compact <OBPUnits> information
+tOBPUnits readUserConfig(GwConfigHandler* config, GwLog* logger)
 {
-    logger = log;
+    enum class Setting : uint8_t { Length, Distance, Speed, WindSpeed, Temp, Date };
+
+    struct Choice {
+        Setting setting; // Unit setting type
+        const char* text; // value from configuration
+        OBPUnits unit;
+    };
+
+    // All allowed values of all settings
+    static const Choice choices[] = {
+        { Setting::Length, "m", OBPUnits::M }, // [m|ft]
+        { Setting::Length, "ft", OBPUnits::FT },
+
+        { Setting::Distance, "m", OBPUnits::M }, // [m|km|nm]
+        { Setting::Distance, "km", OBPUnits::KM },
+        { Setting::Distance, "nm", OBPUnits::NM },
+
+        { Setting::Speed, "m/s", OBPUnits::MS }, // [m/s|km/h|kn]
+        { Setting::Speed, "km/h", OBPUnits::KMH },
+        { Setting::Speed, "kn", OBPUnits::KN },
+
+        { Setting::WindSpeed, "m/s", OBPUnits::MS }, // [m/s|km/h|kn|bft]
+        { Setting::WindSpeed, "km/h", OBPUnits::KMH },
+        { Setting::WindSpeed, "kn", OBPUnits::KN },
+        { Setting::WindSpeed, "bft", OBPUnits::BFT },
+
+        { Setting::Temp, "K", OBPUnits::K }, // [K|C|F]
+        { Setting::Temp, "C", OBPUnits::C },
+        { Setting::Temp, "F", OBPUnits::F },
+
+        { Setting::Date, "DE", OBPUnits::DE }, // [DE|GB|US|ISO]
+        { Setting::Date, "GB", OBPUnits::GB },
+        { Setting::Date, "US", OBPUnits::US },
+        { Setting::Date, "ISO", OBPUnits::ISO },
+    };
+
+    // Lambda function to read the user's setting and translate it into a unit
+    auto parse = [&](Setting setting, const char* name, const String& key) -> OBPUnits {
+        const String value = config->getString(key);
+        for (const Choice& choice : choices) {
+            if (choice.setting == setting && value == choice.text) {
+                return choice.unit;
+            }
+        }
+        LOG_DEBUG(GwLog::ERROR, "ReadUserConfig: Failed to set format for %s, unsupported value: '%s'", name, value.c_str());
+        return OBPUnits::UNSET;
+    };
+
+    tOBPUnits obpUnits;
+    obpUnits.lengthFormat = parse(Setting::Length, "lengthFormat", config->lengthFormat);
+    obpUnits.distanceFormat = parse(Setting::Distance, "distanceFormat", config->distanceFormat);
+    obpUnits.speedFormat = parse(Setting::Speed, "speedFormat", config->speedFormat);
+    obpUnits.windspeedFormat = parse(Setting::WindSpeed, "windspeedFormat", config->windspeedFormat);
+    obpUnits.tempFormat = parse(Setting::Temp, "tempFormat", config->tempFormat);
+    obpUnits.dateFormat = parse(Setting::Date, "dateFormat", config->dateFormat);
+
+    return obpUnits;
 }
 
-void CalibrationData::readConfig(GwConfigHandler* config)
+// Initialize boat data format as a shorter version of boatValue->getFormat() standard format indicator
+BoatDataFmt noteFormat(GwApi::BoatValue* bValue)
+{
+    const String& format = bValue->getFormat();
+    const String& name = bValue->getName();
+
+    if (format == "formatKnots" && (name == "SOG" || name == "STW" || name == "DFT")) {
+        return BoatDataFmt::SPEED;
+    } else if (format == "formatKnots" && (name == "AWS" || name == "TWS" || name == "MaxAws" || name == "MaxTws")) {
+        return BoatDataFmt::WINDSPEED;
+    } else if (format == "formatCourse") {
+        return BoatDataFmt::COURSE;
+    } else if (format == "formatWind") {
+        return BoatDataFmt::WIND;
+    } else if (format == "formatDepth") {
+        return BoatDataFmt::DEPTH;
+    } else if (format == "formatRot") {
+        return BoatDataFmt::ROTATION;
+    } else if (format == "formatLatitude") {
+        return BoatDataFmt::LAT;
+    } else if (format == "formatLongitude") {
+        return BoatDataFmt::LON;
+    } else if (format == "mtr2nm") {
+        return BoatDataFmt::DISTANCE;
+    } else if (format == "formatDop") {
+        return BoatDataFmt::DOP;
+    } else if (format == "formatXte") {
+        return BoatDataFmt::XTE;
+    } else if (format == "kelvinToC") {
+        return BoatDataFmt::TEMP;
+    } else if (format == "formatTime") {
+        return BoatDataFmt::TIME;
+    } else if (format == "formatDate") {
+        return BoatDataFmt::DATE;
+    } else if (format == "formatFixed0") {
+        return BoatDataFmt::FIXED0;
+    } else if (format.startsWith("formatXdr:A")) {
+        return BoatDataFmt::XDR_ATTITUDE;
+    } else if (format == "formatXdr:P:B") {
+        return BoatDataFmt::XDR_PRESSUREBAR;
+    } else if (format == "formatXdr:P:P") {
+        return BoatDataFmt::XDR_PRESSUREPA;
+    } else if (format == "formatXdr:H:P") {
+        return BoatDataFmt::XDR_HUMIDITY;
+    } else if (format == "formatXdr:U:V") {
+        return BoatDataFmt::XDR_VOLT;
+    } else if (format == "formatXdr:I:A") {
+        return BoatDataFmt::XDR_CURRENT;
+    } else if (format == "formatXdr:T:R") {
+        return BoatDataFmt::XDR_RPM;
+    } else if (format == "formatXdr:V:L") {
+        return BoatDataFmt::XDR_LITRE;
+    } else if (format == "formatXdr:V:M") {
+        return BoatDataFmt::XDR_CBM;
+    } else if (!format.isEmpty()) {
+        return BoatDataFmt::OTHER;
+    } else {
+        return BoatDataFmt::NONE;
+    }
+}
+// --- End general data helper ---------------
+
+// --- Class CalibrationData ---------------
+CalibrationData::CalibrationData(GwLog* log)
+    : logger(log)
+{
+}
+
+// Look up a supported boat data type; same list as in config.json
+const CalibrationData::tInstanceInfo* CalibrationData::findInstanceInfo(const String& name)
+{
+    static const tInstanceInfo instanceType[] = {
+        { "AWA", UnitCategory::Angle },
+        { "AWS", UnitCategory::WindSpeed },
+        { "COG", UnitCategory::Angle },
+        { "DBS", UnitCategory::Length },
+        { "DBT", UnitCategory::Length },
+        { "HDM", UnitCategory::Angle },
+        { "HDT", UnitCategory::Angle },
+        { "PRPOS", UnitCategory::Angle },
+        { "RPOS", UnitCategory::Angle },
+        { "SOG", UnitCategory::Speed },
+        { "STW", UnitCategory::Speed },
+        { "TWA", UnitCategory::Angle },
+        { "TWS", UnitCategory::WindSpeed },
+        { "TWD", UnitCategory::Angle },
+        { "WTemp", UnitCategory::Temperature },
+    };
+
+    for (const tInstanceInfo& info : instanceType) {
+        if (name == info.name) {
+            return &info;
+        }
+    }
+    return nullptr;
+}
+
 // Initial load of calibration data into internal list
 // This method is called once at init phase of <obp60task> to read the configuration values
+void CalibrationData::readConfig(GwConfigHandler* config)
 {
-    std::string instance;
-    double offset;
-    double slope;
-    double smooth;
-
-    String calInstance = "";
-    String calOffset = "";
-    String calSlope = "";
-    String calSmooth = "";
+    // Initialize all instance entries
+    for (tInstance& instance : instances) {
+        instance = tInstance();
+    }
+    numInstances = 0;
 
     // Load user format configuration values
-    String lengthFormat = config->getString(config->lengthFormat); // [m|ft]
-    String distanceFormat = config->getString(config->distanceFormat); // [m|km|nm]
-    String speedFormat = config->getString(config->speedFormat); // [m/s|km/h|kn]
-    String windspeedFormat = config->getString(config->windspeedFormat); // [m/s|km/h|kn|bft]
-    String tempFormat = config->getString(config->tempFormat); // [K|C|F]
+    const tOBPUnits obpUnits = readUserConfig(config, logger);
 
     // Read calibration settings for data instances
     for (int i = 0; i < MAX_CALIBRATION_DATA; i++) {
-        calInstance = "calInstance" + String(i + 1);
-        calOffset = "calOffset" + String(i + 1);
-        calSlope = "calSlope" + String(i + 1);
-        calSmooth = "calSmooth" + String(i + 1);
-
-        instance = std::string(config->getString(calInstance, "---").c_str());
+        const String number(i + 1);
+        const String instance = config->getString("calInstance" + number, "---");
         if (instance == "---") {
             LOG_DEBUG(GwLog::LOG, "No calibration data for instance no. %d", i + 1);
             continue;
         }
+        const tInstanceInfo* info = findInstanceInfo(instance);
+        if (info == nullptr) {
+            LOG_DEBUG(GwLog::LOG, "Calibration data for instance no. %d ignored, unsupported type: %s", i + 1, instance.c_str());
+            continue;
+        }
+        double offset = config->getString("calOffset" + number, "").toDouble();
+        double slope = config->getString("calSlope" + number, "").toDouble();
+        const long smoothSetting = config->getString("calSmooth" + number, "").toInt();
 
-        calibrationMap[instance] = { 0.0f, 1.0f, 1.0f, 0.0f, false };
-        offset = (config->getString(calOffset, "")).toDouble();
-        slope = (config->getString(calSlope, "")).toDouble();
-        smooth = (config->getString(calSmooth, "")).toInt(); // user input is int; further math is done with double
+        offset = convertOffsetToSI(info->category, offset, obpUnits);
 
         if (slope == 0.0) {
-            slope = 1.0; // eliminate adjustment if user selected "0" -> that would set the calibrated value to "0"
+            slope = 1.0; // empty or "0" would set every boat value to "0"
         }
 
-        // Convert calibration values from user input format to internal standard SI format
-        if (instance == "AWS" || instance == "TWS") {
-            if (windspeedFormat == "m/s") {
-                // No conversion needed
-            } else if (windspeedFormat == "km/h") {
-                offset /= 3.6; // Convert km/h to m/s
-            } else if (windspeedFormat == "kn") {
-                offset /= 1.94384; // Convert kn to m/s
-            } else if (windspeedFormat == "bft") {
-                offset *= 2 + (offset / 2); // Convert Bft to m/s (approx) -> to be improved
-            }
-
-        } else if (instance == "AWA" || instance == "COG" || instance == "HDM" || instance == "HDT" || instance == "PRPOS" || instance == "RPOS" || instance == "TWA" || instance == "TWD") {
-            offset *= DEG_TO_RAD; // Convert deg to rad
-
-        } else if (instance == "DBS" || instance == "DBT") {
-            if (lengthFormat == "m") {
-                // No conversion needed
-            } else if (lengthFormat == "ft") {
-                offset /= 3.28084; // Convert ft to m
-            }
-
-        } else if (instance == "SOG" || instance == "STW") {
-            if (speedFormat == "m/s") {
-                // No conversion needed
-            } else if (speedFormat == "km/h") {
-                offset /= 3.6; // Convert km/h to m/s
-            } else if (speedFormat == "kn") {
-                offset /= 1.94384; // Convert kn to m/s
-            }
-
-        } else if (instance == "WTemp") {
-            if (tempFormat == "K" || tempFormat == "C") {
-                // No conversion needed
-            } else if (tempFormat == "F") {
-                offset *= 9.0 / 5.0; // Convert °F to K
-                slope *= 9.0 / 5.0; // Convert °F to K
-            }
+        double alpha = 1.0; // no smoothing
+        if (smoothSetting > 0) {
+            const long s = std::min(smoothSetting, 10L);
+            alpha = 1.0 - (0.3 + ((s - 0.01) * (0.95 - 0.3) / (10 - 0.01)));
         }
 
-        // transform smoothing factor from [0.01..10] to [0.3..0.95] and invert for exponential smoothing formula
-        if (smooth <= 0) {
-            smooth = 0;
-        } else {
-            if (smooth > 10) {
-                smooth = 10;
-            }
-            smooth = 0.3 + ((smooth - 0.01) * (0.95 - 0.3) / (10 - 0.01));
+        // Same instance configured twice: the later entry replaces the earlier one
+        tInstance* entry = findInstance(instance);
+        if (entry == nullptr) {
+            entry = &instances[numInstances++];
         }
-        smooth = 1 - smooth;
+        *entry = tInstance();
+        entry->name = instance;
+        entry->offset = offset;
+        entry->slope = slope;
+        entry->smooth = alpha;
 
-        calibrationMap[instance].offset = offset;
-        calibrationMap[instance].slope = slope;
-        calibrationMap[instance].smooth = smooth;
-        calibrationMap[instance].isCalibrated = false;
         LOG_DEBUG(GwLog::LOG, "Calibration data type added: %s, offset: %f, slope: %f, smoothing: %f", instance.c_str(),
-            calibrationMap[instance].offset, calibrationMap[instance].slope, calibrationMap[instance].smooth);
+            entry->offset, entry->slope, entry->smooth);
     }
 }
 
-// Handle calibrationMap and calibrate all boat data values
+// Calibrate all configured boat data values
 void CalibrationData::handleCalibration(BoatValueList* boatValueList)
 {
-    GwApi::BoatValue* bValue;
+    for (int i = 0; i < numInstances; i++) {
+        tInstance& instance = instances[i];
 
-    for (const auto& cMap : calibrationMap) {
-        std::string instance = cMap.first.c_str();
-        bValue = boatValueList->findValueOrCreate(String(instance.c_str()));
+        // read boat data entry once and remember
+        if (instance.bval == nullptr) {
+            instance.bval = boatValueList->findValueOrCreate(instance.name);
+            if (instance.bval == nullptr) {
+                continue;
+            }
+        }
 
-        calibrateInstance(bValue);
-        smoothInstance(bValue);
+        calibrate(instance, *instance.bval);
+        smooth(instance, *instance.bval);
     }
 }
 
 // Calibrate single boat data value
-// Return calibrated boat value or DBL_MAX, if no calibration was performed
+// Return calibrated boat value or false, if no calibration was performed
 bool CalibrationData::calibrateInstance(GwApi::BoatValue* boatDataValue)
 {
-    std::string instance = boatDataValue->getName().c_str();
-    double offset = 0;
-    double slope = 1.0;
-    double dataValue = 0;
-    std::string format = "";
-
-    // we test this earlier, but for safety reasons ...
-    if (calibrationMap.find(instance) == calibrationMap.end()) {
-        LOG_DEBUG(GwLog::DEBUG, "BoatDataCalibration: %s not in calibration list", instance.c_str());
+    if (boatDataValue == nullptr) {
         return false;
     }
 
-    calibrationMap[instance].isCalibrated = false; // reset calibration flag until properly calibrated
-
-    if (!boatDataValue->valid) { // no valid boat data value, so we don't want to apply calibration data
+    tInstance* instance = findInstance(boatDataValue);
+    if (instance == nullptr) {
+        LOG_DEBUG(GwLog::DEBUG, "BoatDataCalibration: %s not in calibration list", boatDataValue->getName().c_str());
         return false;
     }
-
-    offset = calibrationMap[instance].offset;
-    slope = calibrationMap[instance].slope;
-    dataValue = boatDataValue->value;
-    format = boatDataValue->getFormat().c_str();
-    // LOG_DEBUG(GwLog::DEBUG, "BoatDataCalibration: %s: value: %f, format: %s", instance.c_str(), dataValue, format.c_str());
-
-    if (format == "formatWind") { // instance is of type angle
-        dataValue = (dataValue * slope) + offset;
-        dataValue = WindUtils::to2PI(dataValue); // wind angle data is stored in [0..2PI] format
-
-    } else if (format == "formatCourse") { // instance is of type direction
-        dataValue = (dataValue * slope) + offset;
-        dataValue = WindUtils::to2PI(dataValue);
-
-    } else if (format == "kelvinToC") { // instance is of type temperature
-        dataValue = ((dataValue - 273.15) * slope) + offset + 273.15;
-
-    } else {
-        dataValue = (dataValue * slope) + offset;
-    }
-
-    boatDataValue->value = dataValue; // update boat data value with calibrated value
-    calibrationMap[instance].value = dataValue; // store the calibrated value in the list
-    calibrationMap[instance].isCalibrated = true;
-
-    // LOG_DEBUG(GwLog::DEBUG, "BoatDataCalibration: %s: Offset: %f, Slope: %f, Result: %f", instance.c_str(), offset, slope, calibrationMap[instance].value);
-    return true;
+    return calibrate(*instance, *boatDataValue);
 }
 
 // Smooth single boat data value
-// Return smoothed boat value or DBL_MAX, if no smoothing was performed
+// Return smoothed boat value or false, if no smoothing was performed
 bool CalibrationData::smoothInstance(GwApi::BoatValue* boatDataValue)
 {
-    std::string instance = boatDataValue->getName().c_str();
-    double oldValue = 0;
-    double dataValue = boatDataValue->value;
-    double smoothFactor = 0;
-
-    // we test this earlier, but for safety reason ...
-    if (calibrationMap.find(instance) == calibrationMap.end()) {
-        // LOG_DEBUG(GwLog::DEBUG, "BoatDataCalibration: %s not in calibration list", instance.c_str());
+    if (boatDataValue == nullptr) {
         return false;
     }
 
-    calibrationMap[instance].isCalibrated = false; // reset calibration flag until properly calibrated
+    tInstance* instance = findInstance(boatDataValue);
+    if (instance == nullptr) {
+        return false;
+    }
+    return smooth(*instance, *boatDataValue);
+}
 
-    if (!boatDataValue->valid) { // no valid boat data value, so we don't need to do anything
+bool CalibrationData::calibrate(tInstance& instance, GwApi::BoatValue& bval)
+{
+    instance.isCalibrated = false; // reset calibration flag until properly calibrated
+
+    if (!bval.valid) { // no valid boat data value, so we don't want to apply calibration data
         return false;
     }
 
-    smoothFactor = calibrationMap[instance].smooth;
+    resolveFormat(instance, bval);
 
-    if (lastValue.find(instance) != lastValue.end()) {
-        oldValue = lastValue[instance];
-        dataValue = oldValue + (smoothFactor * (dataValue - oldValue)); // exponential smoothing algorithm
+    double value = bval.value;
+    switch (instance.format) {
+    case BoatDataFmt::COURSE: // direction data
+        value = WindUtils::to2PI((value * instance.slope) + instance.offset);
+        break;
+    case BoatDataFmt::WIND: // wind angle data is stored in [0..2PI] format
+        value = WindUtils::to2PI((value * instance.slope) + instance.offset);
+        break;
+    case BoatDataFmt::TEMP:
+        value = ((value - 273.15) * instance.slope) + instance.offset + 273.15;
+        break;
+    default: // also used as long as the format is not known yet (NONE)
+        value = (value * instance.slope) + instance.offset;
+        break;
     }
-    lastValue[instance] = dataValue; // store the new value for next cycle; first time, store only the current value and return
 
-    boatDataValue->value = dataValue; // update boat data value with smoothed value
-    calibrationMap[instance].value = dataValue; // store the smoothed value in the list
-    calibrationMap[instance].isCalibrated = true;
-
+    bval.value = value; // update boat data value with calibrated value
+    instance.value = value; // keep the calibrated value in the entry
+    instance.isCalibrated = true;
     return true;
+}
+
+bool CalibrationData::smooth(tInstance& instance, GwApi::BoatValue& bval)
+{
+    if (!bval.valid) { // no valid boat data value; forget the old one, so that the next valid value starts fresh
+        instance.hasLast = false;
+        return false;
+    }
+
+    if (instance.smooth >= 1.0) { // smoothing is switched off
+        instance.value = bval.value;
+        return true;
+    }
+
+    resolveFormat(instance, bval);
+
+    double value = bval.value;
+    if (instance.hasLast) { // first time, only store the current value
+        if (instance.format == BoatDataFmt::COURSE || instance.format == BoatDataFmt::WIND) {
+            // exponential smoothing along the shortest arc, so that 359 deg -> 1 deg does not pass 180 deg
+            value = WindUtils::to2PI(instance.lastValue + (instance.smooth * WindUtils::toPI(value - instance.lastValue)));
+        } else {
+            value = instance.lastValue + (instance.smooth * (value - instance.lastValue)); // exponential smoothing algorithm
+        }
+    }
+    instance.lastValue = value; // store the new value for next cycle
+    instance.hasLast = true;
+
+    bval.value = value; // update boat data value with smoothed value
+    instance.value = value;
+    return true;
+}
+
+// Convert calibration offset from the user format to SI
+double CalibrationData::convertOffsetToSI(UnitCategory category, double offset, const tOBPUnits& obpUnits)
+{
+    switch (category) {
+    case UnitCategory::WindSpeed:
+        if (obpUnits.windspeedFormat == OBPUnits::KMH) {
+            return offset / 3.6; // km/h to m/s
+        }
+        if (obpUnits.windspeedFormat == OBPUnits::KN) {
+            return offset / 1.94384; // kn to m/s
+        }
+        if (obpUnits.windspeedFormat == OBPUnits::BFT) {
+            return std::copysign(0.836 * std::pow(std::fabs(offset), 1.5), offset); // WMO standard empirical formula: v = 0.836 * B^1.5
+        }
+        return offset; // m/s
+
+    case UnitCategory::Angle:
+        return offset * DEG_TO_RAD; // deg to rad
+
+    case UnitCategory::Length:
+        if (obpUnits.lengthFormat == OBPUnits::FT) {
+            return offset / 3.28084; // ft to m
+        }
+        return offset; // m
+
+    case UnitCategory::Speed:
+        if (obpUnits.speedFormat == OBPUnits::KMH) {
+            return offset / 3.6; // km/h to m/s
+        }
+        if (obpUnits.speedFormat == OBPUnits::KN) {
+            return offset / 1.94384; // kn to m/s
+        }
+        return offset; // m/s
+
+    case UnitCategory::Temperature:
+        if (obpUnits.tempFormat == OBPUnits::F) {
+            return offset * (5.0 / 9.0); // temperature difference: deg F to K
+        }
+        return offset; // K or deg C (same difference)
+    }
+    return offset;
+}
+
+CalibrationData::tInstance* CalibrationData::findInstance(const String& name)
+{
+    for (uint8_t i = 0; i < numInstances; i++) {
+        if (instances[i].name == name) {
+            return &instances[i];
+        }
+    }
+    return nullptr;
+}
+
+CalibrationData::tInstance* CalibrationData::findInstance(const GwApi::BoatValue* bval)
+{
+    for (uint8_t i = 0; i < numInstances; i++) {
+        if (instances[i].bval == bval || instances[i].name == bval->getName()) {
+            return &instances[i];
+        }
+    }
+    return nullptr;
+}
+
+void CalibrationData::resolveFormat(tInstance& instance, GwApi::BoatValue& bval)
+{
+    if (instance.format == BoatDataFmt::NONE) { // Instance format stays NONE and is looked up again on the next call.
+        instance.format = noteFormat(&bval);
+    }
 }
 // --- End Class CalibrationData ---------------
 
@@ -228,7 +420,7 @@ void HstryBuf::init(const String& format, const tHistoryParams& params)
         return; // Buffer initialization already complete
     }
 
-    hstryBuf.setMetaData(boatDataName, format, params.hstryUpdFreq, params.mltplr, params.bufferMinVal, 
+    hstryBuf.setMetaData(boatDataName, format, params.hstryUpdFreq, params.mltplr, params.bufferMinVal,
         params.bufferMaxVal);
     hstryMin = params.bufferMinVal;
     hstryMax = params.bufferMaxVal;
@@ -291,7 +483,7 @@ void HstryBuf::handle(const bool useSimuData, CommonData& common)
         double simSIValue = formatValue(&simValue, common).value; // simulated value is generated at <formatValue>; here: retreive SI value
         add(simSIValue);
     } else {
-        // TODO: add invalid (DBL_MAX) value; this will mark periods of missing data in buffer together with a timestamp
+        // TODO: add invalid value; this will mark periods of missing data in buffer together with a timestamp
     }
 }
 // --- End Class HstryBuf ---------------
@@ -300,7 +492,9 @@ void HstryBuf::handle(const bool useSimuData, CommonData& common)
 HstryBuffers::HstryBuffers(const int size, BoatValueList* boatValues, GwLog* log)
     : bufferSize(size)
     , boatValueList(boatValues)
-    , logger(log) { }
+    , logger(log)
+{
+}
 
 // Function-local static; built once on first use, after heap and PSRAM are initialized;shared by all HstryBuffers instances.
 const HstryBuffers::ParamMap& HstryBuffers::bufferParams()
@@ -398,7 +592,7 @@ void HstryBuffers::initBuffers()
 // Handle all registered history buffers
 void HstryBuffers::handleHstryBufs(bool useSimuData, CommonData& common)
 {
-    if (pendingInit) { 
+    if (pendingInit) {
         initBuffers(); // not all buffers have been initialized yet
     }
 
@@ -568,7 +762,7 @@ bool WindUtils::calcWD(const GwApi::BoatValue* windAng, GwApi::BoatValue* windDi
         setValue(windDir, dir);
         return true;
     }
-    windDir->valid = false;  // Cannot calculate wind direction WD without valid wind angle WA and HDT
+    windDir->valid = false; // Cannot calculate wind direction WD without valid wind angle WA and HDT
     return false;
 }
 

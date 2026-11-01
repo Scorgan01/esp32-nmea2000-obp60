@@ -8,30 +8,113 @@
 #include <unordered_map>
 #include "esp_heap_caps.h"
 
+// Represents user settings of OBP data formats
+enum class OBPUnits : uint8_t {
+    M,      // metre
+    FT,     // feet
+    KM,     // kilometre
+    NM,     // nautical miles
+    MS,     // metre/sec
+    KMH,    // kilometre/hour
+    KN,     // knots
+    BFT,    // Beaufort
+    K,      // kelvin
+    C,      // Celsius
+    F,      // Fahrenheit
+    DE,     // date format Germany
+    GB,     // date GB
+    US,     // date US
+    ISO,    // date ISO
+    UNSET   // unit not specified; should not happen
+};
+
+struct tOBPUnits {
+    OBPUnits lengthFormat;
+    OBPUnits distanceFormat;
+    OBPUnits speedFormat;
+    OBPUnits windspeedFormat;
+    OBPUnits tempFormat;
+    OBPUnits dateFormat;
+};
+
+// Represents boat data value formats
+enum class BoatDataFmt : uint8_t {
+    COURSE,
+    DATE,
+    DEPTH,
+    DISTANCE,
+    DOP,
+    FIXED0,
+    LAT,
+    LON,
+    NONE,
+    OTHER,
+    POSITION,
+    ROTATION,
+    SPEED,
+    WIND,
+    WINDSPEED,
+    TEMP,
+    TIME,
+    XTE,
+    XDR_ATTITUDE,
+    XDR_CBM,
+    XDR_CURRENT,
+    XDR_HUMIDITY,
+    XDR_LITRE,
+    XDR_PRESSUREBAR,
+    XDR_PRESSUREPA,
+    XDR_RPM,
+    XDR_VOLT
+};
+
+tOBPUnits readUserConfig(GwConfigHandler* config, GwLog* logger); // Read all user configuration for OBP unit settings
+
+
 // Calibration of boat data values, when user setting available
 // supported boat data types are: AWA, AWS, COG, DBS, DBT, HDM, HDT, PRPOS, RPOS, SOG, STW, TWA, TWS, TWD, WTemp
 class CalibrationData {
-private:
-    typedef struct {
-        double offset; // calibration offset
-        double slope; // calibration slope
-        double smooth; // smoothing factor
-        double value; // calibrated data value (for future use)
-        bool isCalibrated; // is data instance value calibrated? (for future use)
-    } tCalibrationData;
-
-    std::unordered_map<std::string, tCalibrationData> calibrationMap; // list of calibration data instances
-    std::unordered_map<std::string, double> lastValue; // array for last smoothed value of boat data values
-    GwLog* logger;
-
-    static constexpr int8_t MAX_CALIBRATION_DATA = 4; // maximum number of calibration data instances
-
 public:
-    CalibrationData(GwLog* log);
-    void readConfig(GwConfigHandler* config);
-    void handleCalibration(BoatValueList* boatValues); // Handle calibrationMap and calibrate all boat data values
+    explicit CalibrationData(GwLog* log);
+    void readConfig(GwConfigHandler* config); // Load calibration data from user configuration
+    void handleCalibration(BoatValueList* boatValues); // Calibrate all configured boat data values
     bool calibrateInstance(GwApi::BoatValue* boatDataValue); // Calibrate single boat data value
     bool smoothInstance(GwApi::BoatValue* boatDataValue); // Smooth single boat data value
+
+private:
+    struct tInstance {
+        GwApi::BoatValue* bval = nullptr;
+        String name; // boat data name
+        double offset = 0.0; // calibration offset (SI units)
+        double slope = 1.0; // calibration slope
+        double smooth = 1.0; // weight in exponential smoothing; 1.0 = no smoothing
+        BoatDataFmt format = BoatDataFmt::NONE; // short format of boat value
+        double lastValue = 0.0; // last smoothed value
+        bool hasLast = false; // lastValue is valid
+        double value = 0.0; // calibrated data value (for future use)
+        bool isCalibrated = false; // is data instance value calibrated? (for future use)
+    };
+
+    enum class UnitCategory : uint8_t { WindSpeed, Angle, Length, Speed, Temperature };
+
+    struct tInstanceInfo {
+        const char* name; // boat data name
+        UnitCategory category;
+    };
+
+    static constexpr int8_t MAX_CALIBRATION_DATA = 4; // maximum number of calibration data instances
+    std::array<tInstance, MAX_CALIBRATION_DATA> instances;
+    uint8_t numInstances = 0;
+    GwLog* logger;
+//    tOBPUnits obpUnits; // store user settings for OBP data units
+
+    static const tInstanceInfo* findInstanceInfo(const String& name); // supported boat data type
+    static bool calibrate(tInstance& instance, GwApi::BoatValue& bval);
+    static bool smooth(tInstance& instance, GwApi::BoatValue& bval);
+    static double convertOffsetToSI(UnitCategory category, double offset, const tOBPUnits& OBPUnits); // user format input -> SI
+    tInstance* findInstance(const String& name);
+    tInstance* findInstance(const GwApi::BoatValue* bval);
+    static void resolveFormat(tInstance& instance, GwApi::BoatValue& bval);
 };
 
 struct tHistoryParams {

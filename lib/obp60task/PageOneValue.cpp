@@ -279,12 +279,6 @@ public:
 
         displaySetPartialWindow(0, 0, width, height); // Set partial update
 
-        if (dataChart) { // Check only if dataChart object exists at all
-            if (!dataChart->isValid()) {
-                dataChart->init(); // try late initialization if chart object could not be properly initialized earlier due to missing boat data
-            }
-        }
-
         if (pageMode == VALUE || dataChart == nullptr) {
             // show only data value; ignore other pageMode options if no chart supported boat data history buffer is available
             showData(bValue1, FULL);

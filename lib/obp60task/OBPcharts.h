@@ -15,7 +15,6 @@ struct tChrtProps {
 };
 
 template <typename T> class RingBuffer;
-class GwLog;
 
 class Chart {
 public:
@@ -38,8 +37,6 @@ public:
 
     Chart(RingBuffer<uint16_t>& dataBuf, CommonData& common, bool useSimuData); // Chart object of data chart
     ~Chart();
-    bool init(); // initialize chart object parameters
-    bool isValid() { return initValid; }; // Checks if chart object has been fully initialized
     void showChrt(const ChrtDir chrtDir, const ChrtSize chrtSz, const int8_t chrtIntv, bool prntName, bool showCurrValue, GwApi::BoatValue currValue); // Perform all actions to draw chart
 
 protected:
@@ -47,13 +44,14 @@ protected:
     GwLog* logger;
 
     enum ChrtDataFormat {
-        WIND,
+        COURSE,
+        DEPTH,
+        HUMIDITY,
+        PRESSURE,
         ROTATION,
         SPEED,
-        DEPTH,
         TEMPERATURE,
-        PRESSURE,
-        HUMIDITY,
+        WIND,
         OTHER
     };
 
@@ -65,6 +63,7 @@ protected:
 
     struct tDfltChrtDta {
         const char* format;
+//        const ChrtDataFormat format;
         tChrtProps props;
     };
 
@@ -76,18 +75,19 @@ protected:
         { "formatKnots", { 2.572, 2.572 } }, // default speed range in m/s
         { "formatDepth", { 10.0, 5.0 } }, // default depth range in m
         { "kelvinToC", { 20.0, 5.0 } }, // default temp range in °C/K
+        { "formatRot", { 10.0 * DEG_TO_RAD, 5.0 * DEG_TO_RAD } }, // default rotation range 10 degrees
         { "formatXdr:P:P", { 4000.0, 1000.0 } } // default pressure range in Pascal (hPa * 100); XDR <B> (bar) format is represented in gateway in the same way
     };
 
     RingBuffer<uint16_t>& dataBuf; // Buffer to display
-    bool initValid = false; // indicates whether object holds valid initialization data or not
-    double dfltRng; // Default range of chart, e.g. 30 = [0..30]
+    double dfltRng = 10.0; // Default range of chart, e.g. 30 = [0..30]
     uint16_t fgColor; // color code for any screen writing
     uint16_t bgColor; // color code for screen background
-    bool useSimuData; // flag to indicate if simulation data is active
-    bool smoothCharts; // flag to indicate if charts shall be printed with smoothed gradient
-    String tempFormat; // user defined format for temperature
-    double zeroValue; // "0" SI value for temperature
+    bool useSimuData = false; // flag to indicate if simulation data is active
+    bool smoothCharts = false; // flag to indicate if charts shall be printed with smoothed gradient
+    String tempFormat = ""; // user defined format for temperature
+    double zeroValue = 0.0; // "0" SI value for temperature
+    bool isInitialized = false; // Indicates whether object chart object has been initialized successfully
 
     int dWidth; // Display width
     int dHeight; // Display height
@@ -95,21 +95,21 @@ protected:
     int bottom = 25; // chart gap at bottom of display to keep space for status line
     int hGap = 11; // gap between 2 horizontal charts; actual gap is 2x <gap>
     int vGap = 17; // gap between 2 vertical charts; actual gap is 2x <gap>
-    int timAxis, valAxis; // size of time and value chart axis
-    Pos cRoot; // start point of chart area
-    double chrtRng; // Range of buffer values from min to max value
-    double chrtMin; // Range low end value
-    double chrtMax; // Range high end value
-    double chrtMid; // Range mid value
-    double rngStep; // Defines the step of adjustment (e.g. 10 m/s) for value axis range
-    bool recalcRngMid; // Flag for re-calculation of mid value of chart for wind data types
-    bool allLeft, allRight; // indicate whether all chart points are left or right of middle value (only for wind data type)
+    int timAxis = 0, valAxis = 0; // size of time and value chart axis
+    Pos cRoot = {0, 0}; // start point of chart area
+    double chrtRng = 0.0; // Range of buffer values from min to max value
+    double chrtMin = 0.0; // Range low end value
+    double chrtMax = 0.0; // Range high end value
+    double chrtMid = 0.0; // Range mid value
+    double rngStep = 5.0; // Defines the step of adjustment (e.g. 10 m/s) for value axis range
+    bool recalcRngMid = false; // Flag for re-calculation of mid value of chart for wind data types
+    bool allLeft = true, allRight = true; // indicate whether all chart points are left or right of middle value (only for wind data type)
 
-    String dbName, dbFormat; // Name and format of data buffer
-    ChrtDataFormat chrtDataFmt; // Data format of chart boat data type
-    double dbMIN_VAL; // Lowest possible value of buffer of type <T>
-    double dbMAX_VAL; // Highest possible value of buffer of type <T>; indicates invalid value in buffer
-    size_t bufSize; // History buffer size: 1.920 values for 32 min. history chart
+    String dbName = "", dbFormat = ""; // Name and format of data buffer
+    ChrtDataFormat chrtDataFmt = OTHER; // Data format of chart boat data type
+    double dbMIN_VAL = 0.0; // Lowest possible value of buffer of type <T>
+    double dbMAX_VAL = 0.0; // Highest possible value of buffer of type <T>; indicates invalid value in buffer
+    size_t bufSize = 1920 ; // History buffer size: 1.920 values for 32 min. history chart
     int count; // current size of buffer
     int numBufVals; // number of wind values available for current interval selection
     int bufStart; // 1st data value in buffer to show
@@ -124,6 +124,7 @@ protected:
     double chrtPrevVal; // Last data value in chart area
     int prevX, prevY; // Last x and y coordinates for drawing
 
+    bool initChart(); // Initialize chart object parameters
     bool setChartDimensions(const ChrtDir direction, const ChrtSize chrtSz); // define dimensions and start points for chart
     void drawChrt(const ChrtDir chrtDir, const int8_t chrtIntv, GwApi::BoatValue& currValue); // Draw chart line
     void getBufferStartNSize(const int8_t chrtIntv); // Identify buffer size and buffer start position for chart

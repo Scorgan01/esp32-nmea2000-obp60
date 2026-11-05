@@ -238,12 +238,6 @@ public:
 
         displaySetPartialWindow(0, 0, width, height); // Set partial update
 
-        if (dataChart[0]) { // Check only if dataChart object exists at all
-			if (!dataChart[0]->isValid()) {
-				dataChart[0]->init(); // try late initialization if chart object could not be properly initialized earlier due to missing boat data
-			}
-        }
-
         if (pageMode == VAL_CHART) {
             if (dataChart[0]) {
                 dataChart[0]->showChrt(Chart::HORIZONTAL, Chart::TWO_THIRD_TOP, dataIntv, Chart::PRNT_NAME, Chart::PRNT_VALUE, *bValue[0]);

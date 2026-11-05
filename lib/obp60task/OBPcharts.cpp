@@ -5,16 +5,15 @@
 
 // --- Class Chart ---------------
 
-const Chart::tDfltChrtDta Chart::dfltChrtDta[]; // Default ranges for various boat data types
+constexpr Chart::tDfltChrtDta Chart::dfltChrtDta[]; // Default ranges for various boat data types
 
 // Chart - object holding the actual chart, incl. data buffer and format definition
 // Parameters: <dataBuf> the history data buffer for the chart
-//             <dfltRng> default range of chart, e.g. 30 = [0..30]
 //             <common> common program data; required for logger and color data
 //             <useSimuData> flag to indicate if simulation data is active
 Chart::Chart(RingBuffer<uint16_t>& dataBuf, CommonData& common, bool useSimuData)
-    : dataBuf(dataBuf)
-    , commonData(&common)
+    : commonData(&common)
+    , dataBuf(dataBuf)
     , useSimuData(useSimuData)
 {
     logger = commonData->logger;
@@ -30,29 +29,39 @@ Chart::Chart(RingBuffer<uint16_t>& dataBuf, CommonData& common, bool useSimuData
     dHeight = getdisplay().height();
 #endif
 
-    init();
+    initChart();
 };
 
 Chart::~Chart()
 {
 }
 
-bool Chart::init()
+bool Chart::initChart()
 {
+    if (isInitialized) { // Chart object got all parameters already
+        return true;
+    }
+
+    dataBuf.getMetaData(dbName, dbFormat);
+    if (dbFormat.isEmpty()) { // data buffer may not exist yet, because boat data object is not available yet
+        return false;
+    }
+
     chrtMin = 0.0;
     chrtMax = 0.0;
     chrtMid = 0.0;
     chrtRng = 0.0;
 
-    dataBuf.getMetaData(dbName, dbFormat);
     dbMIN_VAL = dataBuf.getMinVal();
     dbMAX_VAL = dataBuf.getMaxVal();
     bufSize = dataBuf.getCapacity();
     // LOG_DEBUG(GwLog::DEBUG, "Chart Init: dbMIN_VAL: %.2f, dbMAX_VAL: %.2fd, bufSize: %d", dbMIN_VAL, dbMAX_VAL, bufSize);
 
     // Initialize chart data format; shorter version of standard format indicator
-    if (dbFormat == "formatCourse" || dbFormat == "formatWind") {
-        chrtDataFmt = WIND; // Chart is showing data of course / wind <degree> format
+    if (dbFormat == "formatCourse") {
+        chrtDataFmt = COURSE; // Chart is showing data of course <degree> format
+    } else if (dbFormat == "formatWind") {
+        chrtDataFmt = WIND; // Chart is showing data of wind <degree> format
     } else if (dbFormat == "formatRot") {
         chrtDataFmt = ROTATION; // Chart is showing data of rotational <degree> format
     } else if (dbFormat == "formatKnots") {
@@ -109,15 +118,11 @@ bool Chart::init()
     allLeft = true;
     allRight = true;
 
-    if (dbFormat.isEmpty()) { // data buffer may not exist yet, because boat data object is not available yet
-        initValid = false; // chart object will get invalid data during initialization
-    } else {
-        initValid = true;
-    }
-    LOG_DEBUG(GwLog::DEBUG, "Chart Init: dWidth: %d, dHeight: %d, timAxis: %d, valAxis: %d, cRoot {x,y}: %d, %d, dbname: %s, rngStep: %.4f, chrtDataFmt: %d, initValid: %d",
-        dWidth, dHeight, timAxis, valAxis, cRoot.x, cRoot.y, dbName.c_str(), rngStep, chrtDataFmt, initValid);
+    LOG_DEBUG(GwLog::DEBUG, "Chart Init: dWidth: %d, dHeight: %d, dbname: %s, rngStep: %.4f, chrtDataFmt: %d",
+        dWidth, dHeight, dbName.c_str(), rngStep, chrtDataFmt);
 
-    return isValid();
+    isInitialized = true;
+    return true;
 }
 
 // Perform all actions to draw chart
@@ -129,6 +134,10 @@ bool Chart::init()
 //             <currValue>:     current boat data value; used only for test on valid data
 void Chart::showChrt(const ChrtDir chrtDir, ChrtSize chrtSz, const int8_t chrtIntv, bool prntName, bool showCurrValue, GwApi::BoatValue currValue)
 {
+    if (!initChart()) {
+        return; // Chart data could not be initialized yet due to missing boat data
+    }
+
     if (!setChartDimensions(chrtDir, chrtSz)) {
         return; // wrong chart dimension parameters
     }

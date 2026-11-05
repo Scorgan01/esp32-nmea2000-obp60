@@ -5,6 +5,8 @@
 
 // --- Class Chart ---------------
 
+const Chart::tDfltChrtDta Chart::dfltChrtDta[]; // Default ranges for various boat data types
+
 // Chart - object holding the actual chart, incl. data buffer and format definition
 // Parameters: <dataBuf> the history data buffer for the chart
 //             <dfltRng> default range of chart, e.g. 30 = [0..30]
@@ -83,9 +85,16 @@ bool Chart::init()
     }
 
     // Read default range and range step for this chart type
-    if (dfltChrtDta.count(dbFormat)) {
-        dfltRng = dfltChrtDta[dbFormat].range;
-        rngStep = dfltChrtDta[dbFormat].step;
+    const tChrtProps* props = nullptr;
+    for (const auto& entry : dfltChrtDta) {
+        if (dbFormat.equals(entry.format)) {
+            props = &entry.props;
+            break;
+        }
+    }
+    if (props != nullptr) {
+        dfltRng = props->range;
+        rngStep = props->step;
     } else {
         dfltRng = 10.0;
         rngStep = 5.0;
@@ -106,7 +115,7 @@ bool Chart::init()
         initValid = true;
     }
     LOG_DEBUG(GwLog::DEBUG, "Chart Init: dWidth: %d, dHeight: %d, timAxis: %d, valAxis: %d, cRoot {x,y}: %d, %d, dbname: %s, rngStep: %.4f, chrtDataFmt: %d, initValid: %d",
-        dWidth, dHeight, timAxis, valAxis, cRoot.x, cRoot.y, dbName, rngStep, chrtDataFmt, initValid);
+        dWidth, dHeight, timAxis, valAxis, cRoot.x, cRoot.y, dbName.c_str(), rngStep, chrtDataFmt, initValid);
 
     return isValid();
 }

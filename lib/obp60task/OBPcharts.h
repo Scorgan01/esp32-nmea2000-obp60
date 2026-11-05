@@ -9,13 +9,12 @@ struct Pos {
     int y;
 };
 
-struct ChartProps {
+struct tChrtProps {
     double range;
     double step;
 };
 
-template <typename T>
-class RingBuffer;
+template <typename T> class RingBuffer;
 class GwLog;
 
 class Chart {
@@ -64,6 +63,22 @@ protected:
 
     static constexpr bool NO_SIMUDATA = true; // switch off simulation feature of <formatValue> function
 
+    struct tDfltChrtDta {
+        const char* format;
+        tChrtProps props;
+    };
+
+    // Default ranges for various boat data types
+    // Parameters: #1: boat data format, #2: default range, #3: step for range adjustment
+    static constexpr tDfltChrtDta dfltChrtDta[] = {
+        { "formatWind", { 60.0 * DEG_TO_RAD, 10.0 * DEG_TO_RAD } }, // default wind range 60 degrees
+        { "formatCourse", { 60.0 * DEG_TO_RAD, 10.0 * DEG_TO_RAD } }, // default course range 60 degrees
+        { "formatKnots", { 2.572, 2.572 } }, // default speed range in m/s
+        { "formatDepth", { 10.0, 5.0 } }, // default depth range in m
+        { "kelvinToC", { 20.0, 5.0 } }, // default temp range in °C/K
+        { "formatXdr:P:P", { 4000.0, 1000.0 } } // default pressure range in Pascal (hPa * 100); XDR <B> (bar) format is represented in gateway in the same way
+    };
+
     RingBuffer<uint16_t>& dataBuf; // Buffer to display
     bool initValid = false; // indicates whether object holds valid initialization data or not
     double dfltRng; // Default range of chart, e.g. 30 = [0..30]
@@ -108,17 +123,6 @@ protected:
 
     double chrtPrevVal; // Last data value in chart area
     int prevX, prevY; // Last x and y coordinates for drawing
-
-    // Default ranges for various boat data types
-    // Parameters: <1st value> default range, <2nd value> step for range adjustment
-    std::map<String, ChartProps> dfltChrtDta = {
-        { "formatWind", { 60.0 * DEG_TO_RAD, 10.0 * DEG_TO_RAD } }, // default wind range 60 degrees
-        { "formatCourse", { 60.0 * DEG_TO_RAD, 10.0 * DEG_TO_RAD } }, // default course range 60 degrees
-        { "formatKnots", { 2.572, 2.572 } }, // default speed range in m/s
-        { "formatDepth", { 10.0, 5.0 } }, // default depth range in m
-        { "kelvinToC", { 20.0, 5.0 } }, // default temp range in °C/K
-        { "formatXdr:P:P", { 4000.0, 1000.0 } } // default pressure range in Pascal (hPa * 100); XDR <B> (bar) format is represented in gateway in the same way
-    };
 
     bool setChartDimensions(const ChrtDir direction, const ChrtSize chrtSz); // define dimensions and start points for chart
     void drawChrt(const ChrtDir chrtDir, const int8_t chrtIntv, GwApi::BoatValue& currValue); // Draw chart line

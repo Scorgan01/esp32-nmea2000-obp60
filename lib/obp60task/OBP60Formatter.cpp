@@ -934,7 +934,7 @@ String formatValue(const double &value, const String &format, CommonData &common
 double convertValue(const double &value, const String &name, const String &format, CommonData &commondata)
 {
     constexpr bool NO_SIMUDATA = true; // switch off simulation feature of <formatValue> function
-    GwApi::BoatValue tmpBVal("dummy"); // temporary boat value for string formatter
+    GwApi::BoatValue tmpBVal(name); // temporary boat value for string formatter
     tmpBVal.setFormat(format);
     tmpBVal.valid = true;
     tmpBVal.value = value;

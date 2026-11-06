@@ -13,6 +13,26 @@ typedef std::vector<GwApi::BoatValue *> ValueList;
 class HstryBuffers;
 class Alarms;
 
+// Represents user settings of OBP data formats
+enum class OBPUnits : uint8_t {
+    M,      // metre
+    FT,     // feet
+    KM,     // kilometre
+    NM,     // nautical miles
+    MS,     // metre/sec
+    KMH,    // kilometre/hour
+    KN,     // knots
+    BFT,    // Beaufort
+    K,      // kelvin
+    C,      // Celsius
+    F,      // Fahrenheit
+    DE,     // date format Germany
+    GB,     // date GB
+    US,     // date US
+    ISO,    // date ISO
+    UNSET   // unit not specified; should not happen
+};
+
 typedef struct{
   GwApi *api;
   String pageName;
@@ -21,6 +41,15 @@ typedef struct{
   ValueList values;
   HstryBuffers* hstryBuffers; // list of all boat history buffers
 } PageData;
+
+typedef struct {
+    OBPUnits lengthFormat;
+    OBPUnits distanceFormat;
+    OBPUnits speedFormat;
+    OBPUnits windspeedFormat;
+    OBPUnits tempFormat;
+    OBPUnits dateFormat;
+} tOBPUnits;
 
 // Sensor data structure (only for extended sensors, not for NMEA bus sensors)
 typedef struct{
@@ -105,6 +134,7 @@ typedef struct{
     GwApi::Status status;
     GwLog *logger = nullptr;
     GwConfigHandler *config = nullptr;
+    tOBPUnits obpUnits;
     SensorData data;
     SunData sundata;
     TouchKeyData keydata[6];

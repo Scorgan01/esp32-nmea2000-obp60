@@ -563,13 +563,14 @@ void OBP60Task(GwApi *api){
     commonData.backlight.color = colorMapping(config->getConfigItem(config->blColor,true)->asString());
     commonData.backlight.brightness = uint(config->getConfigItem(config->blBrightness,true)->asInt());
     commonData.powermode = api->getConfig()->getConfigItem(api->getConfig()->powerMode,true)->asString();
-
+    
     bool uvoltage = config->getConfigItem(config->underVoltage, true)->asBoolean();
     float voffset = (config->getConfigItem(config->vOffset,true)->asString()).toFloat();
     float vslope = (config->getConfigItem(config->vSlope,true)->asString()).toFloat();
     String cpuspeed = api->getConfig()->getConfigItem(api->getConfig()->cpuSpeed,true)->asString();
     uint hdopAccuracy = uint(api->getConfig()->getConfigItem(api->getConfig()->hdopAccuracy,true)->asInt());
 
+    commonData.obpUnits = readUserConfig(config, logger);     // Read all user configuration for OBP unit settings
     double homelat = commonData.config->getString(commonData.config->homeLAT).toDouble();
     double homelon = commonData.config->getString(commonData.config->homeLON).toDouble();
     bool homevalid = homelat >= -180.0 and homelat <= 180 and homelon >= -90.0 and homelon <= 90.0;
@@ -586,7 +587,7 @@ void OBP60Task(GwApi *api){
     GwApi::BoatValue *time = boatValues.findValueOrCreate("GPST");      // Load GpsTime
     GwApi::BoatValue *lat = boatValues.findValueOrCreate("LAT");        // Load GpsLatitude
     GwApi::BoatValue *lon = boatValues.findValueOrCreate("LON");        // Load GpsLongitude
-    GwApi::BoatValue *hdop = boatValues.findValueOrCreate("HDOP");       // Load GpsHDOP
+    GwApi::BoatValue *hdop = boatValues.findValueOrCreate("HDOP");      // Load GpsHDOP
 
     LOG_DEBUG(GwLog::LOG,"obp60task: start mainloop");
     

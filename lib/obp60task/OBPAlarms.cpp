@@ -1,5 +1,4 @@
 #include "OBPAlarms.h"
-#include "OBPDataOperations.h"
 #include "OBP60Extensions.h"
 
 String Alarms::lengthFormat = "";
@@ -14,7 +13,7 @@ ulong Alarms::alrmSuspTime = 0;
 static constexpr double TIME_ALARM_WINDOW = 60.0; // seconds during which a time alarm is "hit"
 static constexpr double SECONDS_PER_DAY = 86400.0;
 
-const std::map<Alarms::BoatDataFmt, double> Alarms::hysteresis = {
+const std::map<BoatDataFmt, double> Alarms::hysteresis = {
     { BoatDataFmt::SPEED, 1.0 },
     { BoatDataFmt::WINDSPEED, 1.0 },
     { BoatDataFmt::DEPTH, 1.0 },
@@ -29,71 +28,16 @@ const std::map<Alarms::BoatDataFmt, double> Alarms::hysteresis = {
     { BoatDataFmt::DISTANCE, 20 },
     { BoatDataFmt::TEMP, 5.0 },
     { BoatDataFmt::TIME, 0.0 },
-    { BoatDataFmt::ATTITUDE, 5 * DEG_TO_RAD },
-    { BoatDataFmt::PRESSUREBAR, 0.3 }, // pressure in bar
-    { BoatDataFmt::PRESSUREPA, 30000.0 }, // pressure in Pa
-    { BoatDataFmt::HUMIDITY, 1.0 }, // humidity in percent
-    { BoatDataFmt::VOLT, 0.1 }, // voltage
-    { BoatDataFmt::CURRENT, 0.5 }, // current in amperes
-    { BoatDataFmt::RPM, 200 }, // tachometer in rpm
-    { BoatDataFmt::LITRE, 10 }, // volume in litres
-    { BoatDataFmt::CBM, 0.01 }, // volume in cbm
+    { BoatDataFmt::XDR_ATTITUDE, 5 * DEG_TO_RAD },
+    { BoatDataFmt::XDR_PRESSUREBAR, 0.3 }, // pressure in bar
+    { BoatDataFmt::XDR_PRESSUREPA, 30000.0 }, // pressure in Pa
+    { BoatDataFmt::XDR_HUMIDITY, 1.0 }, // humidity in percent
+    { BoatDataFmt::XDR_VOLT, 0.1 }, // voltage
+    { BoatDataFmt::XDR_CURRENT, 0.5 }, // current in amperes
+    { BoatDataFmt::XDR_RPM, 200 }, // tachometer in rpm
+    { BoatDataFmt::XDR_LITRE, 10 }, // volume in litres
+    { BoatDataFmt::XDR_CBM, 0.01 }, // volume in cbm
 };
-
-// Initialize boat data format as a shorter version of boatValue->getFormat() standard format indicator
-static Alarms::BoatDataFmt initFormat(GwApi::BoatValue* bValue)
-{
-    String format = bValue->getFormat();
-    String name = bValue->getName();
-
-    if (format == "formatKnots" && (name == "SOG" || name == "STW" || name == "DFT")) {
-        return Alarms::BoatDataFmt::SPEED;
-    } else if (format == "formatKnots" && (name == "AWS" || name == "TWS" || name == "MaxAws" || name == "MaxTws")) {
-        return Alarms::BoatDataFmt::WINDSPEED;
-    } else if (format == "formatCourse") {
-        return Alarms::BoatDataFmt::COURSE;
-    } else if (format == "formatWind") {
-        return Alarms::BoatDataFmt::WIND;
-    } else if (format == "formatDepth") {
-        return Alarms::BoatDataFmt::DEPTH;
-    } else if (format == "formatRot") {
-        return Alarms::BoatDataFmt::ROTATION;
-    } else if (format == "formatLatitude") {
-        return Alarms::BoatDataFmt::LAT;
-    } else if (format == "formatLongitude") {
-        return Alarms::BoatDataFmt::LON;
-    } else if (format == "mtr2nm") {
-        return Alarms::BoatDataFmt::DISTANCE;
-    } else if (format == "formatDop") {
-        return Alarms::BoatDataFmt::DOP;
-    } else if (format == "formatXte") {
-        return Alarms::BoatDataFmt::XTE;
-    } else if (format == "kelvinToC") {
-        return Alarms::BoatDataFmt::TEMP;
-    } else if (format == "formatTime") {
-        return Alarms::BoatDataFmt::TIME;
-     } else if (format.startsWith("formatXdr:A")) {
-        return Alarms::BoatDataFmt::ATTITUDE;
-    } else if (format == "formatXdr:P:B") {
-        return Alarms::BoatDataFmt::PRESSUREBAR;
-    } else if (format == "formatXdr:P:P") {
-        return Alarms::BoatDataFmt::PRESSUREPA;
-    } else if (format == "formatXdr:H:P") {
-        return Alarms::BoatDataFmt::HUMIDITY;
-    } else if (format == "formatXdr:U:V") {
-        return Alarms::BoatDataFmt::VOLT;
-    } else if (format == "formatXdr:I:A") {
-        return Alarms::BoatDataFmt::CURRENT;
-    } else if (format == "formatXdr:T:R") {
-        return Alarms::BoatDataFmt::RPM;
-    } else if (format == "formatXdr:V:L") {
-        return Alarms::BoatDataFmt::LITRE;
-    } else if (format == "formatXdr:V:M") {
-        return Alarms::BoatDataFmt::CBM;
-    } else {
-        return Alarms::BoatDataFmt::OTHER; // should not happen
-    }
-}
 
 enum class AngleZone : uint8_t {
     INSIDE,
@@ -249,7 +193,7 @@ void Alarms::readConfig(GwConfigHandler* config)
         a.snzTime = 0;
         a.suspTime = 0;
         a.alarmTime = 0;
-        a.format = Alarms::BoatDataFmt::OTHER; // set initially to unknown; will be updated as soon as boat value is available
+        a.format = BoatDataFmt::OTHER; // set initially to unknown; will be updated as soon as boat value is available
         a.signal = SignalType::MESSAGE;
         alarmList.push_back(a);
 
@@ -275,22 +219,22 @@ void Alarms::initAlarmData()
         if (a.boatValue->getFormat().isEmpty()) {
             continue;                              // boat data not available yet, try next time
         }
-        BoatDataFmt fmt = initFormat(a.boatValue);
-        if (fmt == Alarms::BoatDataFmt::OTHER) {
+        BoatDataFmt fmt = noteFormat(a.boatValue);
+        if (fmt == BoatDataFmt::OTHER) {
             continue;                              // format still unknown
         }
         a.format = fmt;
 
         bool hasHigh = std::isfinite(a.highLimit);
         bool hasLow = std::isfinite(a.lowLimit);
-        if (hasHigh && a.format != Alarms::BoatDataFmt::TIME) {  // only convert value if other than GPST value
-            a.highLimit = convertValueToSI(a.highLimit, a.format);
+        if (hasHigh && a.format != BoatDataFmt::TIME) {  // only convert value if other than GPST value
+            a.highLimit = convertValueToSI(a.highLimit, a.format, m_obpUnits);
         }
         if (hasLow) {
-            a.lowLimit = convertValueToSI(a.lowLimit, a.format);
+            a.lowLimit = convertValueToSI(a.lowLimit, a.format, m_obpUnits);
         }
 
-        if (a.format == Alarms::BoatDataFmt::COURSE || a.format == Alarms::BoatDataFmt::WIND) {
+        if (a.format == BoatDataFmt::COURSE || a.format == BoatDataFmt::WIND) {
             // angles require a range of low and high threshold; if one is not given, we set it to 0°
             if (!hasLow) {
                 a.lowLimit = 0.0;
@@ -342,14 +286,14 @@ Alarms::tAlarm* Alarms::getActiveAlarm()
 // Check whether boatvalue exceeds high threshold
 bool Alarms::checkHighHit(const tAlarm& alarm, bool withHysteresis) const
 {
-    if (alarm.format == Alarms::BoatDataFmt::TIME) {
+    if (alarm.format == BoatDataFmt::TIME) {
         if (alarm.state == AlarmState::SNOOZE) {
             return snoozeTimeOver(alarm); // Snoozed time alarm: the window reopens when the snooze period ends
         }
         return timeOfDayHit(alarm.boatValue->value, alarm.highLimit); // hysteresis not applicable
     }
 
-    if (alarm.format == Alarms::BoatDataFmt::COURSE || alarm.format == Alarms::BoatDataFmt::WIND) {
+    if (alarm.format == BoatDataFmt::COURSE || alarm.format == BoatDataFmt::WIND) {
         if (!std::isfinite(alarm.lowLimit) || !std::isfinite(alarm.highLimit)) {
             return false; // an angle range needs both limits
         }
@@ -372,11 +316,11 @@ bool Alarms::checkHighHit(const tAlarm& alarm, bool withHysteresis) const
 // Check whether boatvalue exceeds low threshold
 bool Alarms::checkLowHit(const tAlarm& alarm, bool withHysteresis) const
 {
-    if (alarm.format == Alarms::BoatDataFmt::TIME) {
+    if (alarm.format == BoatDataFmt::TIME) {
         return false;
     }
 
-    if (alarm.format == Alarms::BoatDataFmt::COURSE || alarm.format == Alarms::BoatDataFmt::WIND) {
+    if (alarm.format == BoatDataFmt::COURSE || alarm.format == BoatDataFmt::WIND) {
         if (!std::isfinite(alarm.lowLimit) || !std::isfinite(alarm.highLimit)) {
             return false; // an angle range needs both limits
         }
@@ -489,7 +433,7 @@ void Alarms::checkAlarms()
 
         } else if (currentState == AlarmState::ACTIVE) {
             clearPending();
-            if (alarm.format != Alarms::BoatDataFmt::TIME && highCleared && lowCleared) {
+            if (alarm.format != BoatDataFmt::TIME && highCleared && lowCleared) {
                 // Time alarms stay active until confirmed by the user
                 suspendAlarm(alarm);
                 alarm.hitHighLimit = false;
@@ -574,70 +518,4 @@ bool Alarms::snoozeTimeOver(const tAlarm& alarm) const
     } else {
         return false;
     }
-}
-
-// Convert boat values from user input format to internal standard SI format
-double Alarms::convertValueToSI(const double value, const BoatDataFmt valueFormat)
-{
-    double result = value;
-
-    if (valueFormat == Alarms::BoatDataFmt::SPEED) {
-        if (speedFormat == "km/h") {
-            result /= 3.6; // Convert km/h to m/s
-        } else if (speedFormat == "kn") {
-            result /= 1.94384; // Convert kn to m/s
-        } else { // value is given in SI m/s
-            // No conversion needed
-        }
-
-    } else if (valueFormat == BoatDataFmt::WINDSPEED) {
-        if (windspeedFormat == "km/h") {
-            result /= 3.6; // Convert km/h to m/s
-        } else if (windspeedFormat == "kn") {
-            result /= 1.94384; // Convert kn to m/s
-        } else if (windspeedFormat == "bft") {
-            result = 0.836 * std::pow(value, 1.5); // WMO standard empirical formula: v = 0.836 * B^1.5
-        } else { // value is given in SI m/s
-            // No conversion needed
-        }
-
-    } else if (valueFormat == Alarms::BoatDataFmt::COURSE) {
-        result *= DEG_TO_RAD;
-        result = WindUtils::to2PI(result);
-
-    } else if (valueFormat == Alarms::BoatDataFmt::WIND) {
-        result *= DEG_TO_RAD;
-        result = WindUtils::to2PI(result);
-
-    } else if (valueFormat == Alarms::BoatDataFmt::ROTATION || valueFormat == Alarms::BoatDataFmt::ATTITUDE) {
-        result *= DEG_TO_RAD;
-        result = WindUtils::toPI(result);
-
-    } else if (valueFormat == Alarms::BoatDataFmt::DEPTH) {
-        if (lengthFormat == "ft") {
-            result /= 3.28084; // Convert ft to m
-        } else { // value is given in SI metres
-            // No conversion needed
-        }
-
-    } else if (valueFormat == Alarms::BoatDataFmt::XTE || valueFormat == Alarms::BoatDataFmt::DISTANCE) {
-        if (distanceFormat == "km") {
-            result *= 1000;
-        } else if (distanceFormat == "nm") {
-            result *= 1852;
-        } else { // value is given in SI metres
-            // No conversion needed
-        }
-
-    } else if (valueFormat == Alarms::BoatDataFmt::TEMP) {
-        if (tempFormat == "C") {
-            result += 273.15;
-        } else if (tempFormat == "F") {
-            result = (result - 32.0) * (5.0 / 9.0) + 273.15; // Convert °F to K
-        } else { // value is given in SI Kelvin
-            // No conversion needed
-        }
-    }
-
-    return result;
 }

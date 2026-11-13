@@ -53,15 +53,15 @@ tOBPUnits readUserConfig(GwConfigHandler* config, GwLog* logger)
         return OBPUnits::UNSET;
     };
 
-    tOBPUnits obpUnits;
-    obpUnits.lengthFormat = parse(Setting::Length, "lengthFormat", config->lengthFormat);
-    obpUnits.distanceFormat = parse(Setting::Distance, "distanceFormat", config->distanceFormat);
-    obpUnits.speedFormat = parse(Setting::Speed, "speedFormat", config->speedFormat);
-    obpUnits.windspeedFormat = parse(Setting::WindSpeed, "windspeedFormat", config->windspeedFormat);
-    obpUnits.tempFormat = parse(Setting::Temp, "tempFormat", config->tempFormat);
-    obpUnits.dateFormat = parse(Setting::Date, "dateFormat", config->dateFormat);
+    tOBPUnits m_obpUnits;
+    m_obpUnits.lengthFormat = parse(Setting::Length, "lengthFormat", config->lengthFormat);
+    m_obpUnits.distanceFormat = parse(Setting::Distance, "distanceFormat", config->distanceFormat);
+    m_obpUnits.speedFormat = parse(Setting::Speed, "speedFormat", config->speedFormat);
+    m_obpUnits.windspeedFormat = parse(Setting::WindSpeed, "windspeedFormat", config->windspeedFormat);
+    m_obpUnits.tempFormat = parse(Setting::Temp, "tempFormat", config->tempFormat);
+    m_obpUnits.dateFormat = parse(Setting::Date, "dateFormat", config->dateFormat);
 
-    return obpUnits;
+    return m_obpUnits;
 }
 
 // Initialize boat data format as a shorter version of boatValue->getFormat() standard format indicator
@@ -124,6 +124,82 @@ BoatDataFmt noteFormat(GwApi::BoatValue* bValue)
         return BoatDataFmt::NONE;
     }
 }
+
+// Convert value to internal standard SI format
+double convertValueToSI(const double value, const BoatDataFmt valueFormat, const tOBPUnits* m_obpUnits)
+{
+    double result = value;
+
+    switch (valueFormat) {
+    case BoatDataFmt::SPEED:
+        if (m_obpUnits->speedFormat == OBPUnits::KMH) {
+            result /= 3.6; // Convert km/h to m/s
+        } else if (m_obpUnits->speedFormat == OBPUnits::KN) {
+            result *= (1852.0 / 3600.0); // Convert kn to m/s
+        } else { // value is given in SI m/s
+            // No conversion needed
+        }
+        break;
+
+    case BoatDataFmt::WINDSPEED:
+        if (m_obpUnits->windspeedFormat == OBPUnits::KMH) {
+            result /= 3.6; // Convert km/h to m/s
+        } else if (m_obpUnits->windspeedFormat == OBPUnits::KN) {
+            result *= (1852.0 / 3600.0); // Convert kn to m/s
+        } else if (m_obpUnits->windspeedFormat == OBPUnits::BFT) {
+            result = std::max(result, 0.0);
+            result = 0.836 * std::pow(result, 1.5); // WMO standard empirical formula: v = 0.836 * B^1.5
+
+        } else { // value is given in SI m/s
+            // No conversion needed
+        }
+        break;
+
+    case BoatDataFmt::COURSE:
+    case BoatDataFmt::WIND:
+        result *= DEG_TO_RAD;
+        result = WindUtils::to2PI(result);
+        break;
+
+    case BoatDataFmt::ROTATION:
+    case BoatDataFmt::XDR_ATTITUDE:
+        result *= DEG_TO_RAD;
+        result = WindUtils::toPI(result);
+        break;
+
+    case BoatDataFmt::DEPTH:
+        if (m_obpUnits->lengthFormat == OBPUnits::FT) {
+            result *= 0.3048; // Convert ft to m
+        } else { // value is given in SI metres
+            // No conversion needed
+        }
+        break;
+
+    case BoatDataFmt::XTE:
+    case BoatDataFmt::DISTANCE:
+        if (m_obpUnits->distanceFormat == OBPUnits::KM) {
+            result *= 1000; // km to m
+        } else if (m_obpUnits->distanceFormat == OBPUnits::NM) {
+            result *= 1852; // nm to m
+        } else { // value is given in SI metres
+            // No conversion needed
+        }
+        break;
+
+    case BoatDataFmt::TEMP:
+        if (m_obpUnits->tempFormat == OBPUnits::C) {
+            result += 273.15;
+        } else if (m_obpUnits->tempFormat == OBPUnits::F) {
+            result = (result - 32.0) * (5.0 / 9.0) + 273.15; // Convert °F to K
+        } else { // value is given in SI Kelvin
+            // No conversion needed
+        }
+        break;
+    }
+
+    return result;
+}
+
 // --- End general data helper ---------------
 
 // --- Class CalibrationData ---------------
@@ -341,10 +417,11 @@ double CalibrationData::convertOffsetToSI(UnitCategory category, double offset, 
             return offset / 3.6; // km/h to m/s
         }
         if (obpUnits.windspeedFormat == OBPUnits::KN) {
-            return offset / 1.94384; // kn to m/s
+            return offset * (1852.0 / 3600.0); // kn to m/s
         }
         if (obpUnits.windspeedFormat == OBPUnits::BFT) {
-            return std::copysign(0.836 * std::pow(std::fabs(offset), 1.5), offset); // WMO standard empirical formula: v = 0.836 * B^1.5
+            offset = std::max(offset, 0.0);
+            return 0.836 * std::pow(offset, 1.5); // WMO standard empirical formula: v = 0.836 * B^1.5
         }
         return offset; // m/s
 
@@ -353,7 +430,7 @@ double CalibrationData::convertOffsetToSI(UnitCategory category, double offset, 
 
     case UnitCategory::Length:
         if (obpUnits.lengthFormat == OBPUnits::FT) {
-            return offset / 3.28084; // ft to m
+            return offset * 0.3048; // ft to m
         }
         return offset; // m
 
@@ -362,7 +439,7 @@ double CalibrationData::convertOffsetToSI(UnitCategory category, double offset, 
             return offset / 3.6; // km/h to m/s
         }
         if (obpUnits.speedFormat == OBPUnits::KN) {
-            return offset / 1.94384; // kn to m/s
+            return offset * (1852.0 / 3600.0); // kn to m/s
         }
         return offset; // m/s
 

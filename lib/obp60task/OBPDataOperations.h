@@ -5,37 +5,8 @@
 #include "obp60task.h"
 #include "movingAvg.h"
 #include <map>
-#include <unordered_map>
-#include "esp_heap_caps.h"
 
-// Represents user settings of OBP data formats
-enum class OBPUnits : uint8_t {
-    M,      // metre
-    FT,     // feet
-    KM,     // kilometre
-    NM,     // nautical miles
-    MS,     // metre/sec
-    KMH,    // kilometre/hour
-    KN,     // knots
-    BFT,    // Beaufort
-    K,      // kelvin
-    C,      // Celsius
-    F,      // Fahrenheit
-    DE,     // date format Germany
-    GB,     // date GB
-    US,     // date US
-    ISO,    // date ISO
-    UNSET   // unit not specified; should not happen
-};
-
-struct tOBPUnits {
-    OBPUnits lengthFormat;
-    OBPUnits distanceFormat;
-    OBPUnits speedFormat;
-    OBPUnits windspeedFormat;
-    OBPUnits tempFormat;
-    OBPUnits dateFormat;
-};
+// --- general data helper ---------------
 
 // Represents boat data value formats
 enum class BoatDataFmt : uint8_t {
@@ -69,6 +40,10 @@ enum class BoatDataFmt : uint8_t {
 };
 
 tOBPUnits readUserConfig(GwConfigHandler* config, GwLog* logger); // Read all user configuration for OBP unit settings
+BoatDataFmt noteFormat(GwApi::BoatValue* bValue); // Initialize boat data format as a shorter version of boatValue->getFormat()
+double convertValueToSI(const double value, const BoatDataFmt valueFormat, const tOBPUnits* m_obpUnits); // Convert value to internal standard SI format
+
+// --- End general data helper ---------------
 
 
 // Calibration of boat data values, when user setting available
@@ -106,7 +81,6 @@ private:
     std::array<tInstance, MAX_CALIBRATION_DATA> instances;
     uint8_t numInstances = 0;
     GwLog* logger;
-//    tOBPUnits obpUnits; // store user settings for OBP data units
 
     static const tInstanceInfo* findInstanceInfo(const String& name); // supported boat data type
     static bool calibrate(tInstance& instance, GwApi::BoatValue& bval);

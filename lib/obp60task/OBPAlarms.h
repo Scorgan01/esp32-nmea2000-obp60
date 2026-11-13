@@ -1,6 +1,7 @@
 #pragma once
 #include "Pagedata.h"
 #include "obp60task.h"
+#include "OBPDataOperations.h"
 #include <unordered_map>
 
 class Alarms {
@@ -15,33 +16,6 @@ public:
         MESSAGE,
         LED,
         BUZZER
-    };
-
-    enum class BoatDataFmt : uint8_t {
-        SPEED,
-        WINDSPEED,
-        COURSE,
-        WIND,
-        DEPTH,
-        ROTATION,
-        POSITION,
-        LAT,
-        LON,
-        DISTANCE,
-        DOP,
-        XTE,
-        TEMP,
-        TIME,
-        ATTITUDE,
-        PRESSUREBAR,
-        PRESSUREPA,
-        HUMIDITY,
-        VOLT,
-        CURRENT,
-        RPM,
-        LITRE,
-        CBM,
-        OTHER
     };
 
     struct tAlarm {
@@ -82,6 +56,7 @@ private:
     std::vector<tAlarm> alarmList; // array for list of boatValues with alarms specified
     BoatValueList& m_boatValueList;
     CommonData* m_common;
+    tOBPUnits* m_obpUnits = &m_common->obpUnits;
     GwConfigHandler* m_config;
     GwLog* logger;
     GwApi* m_api;
@@ -95,8 +70,6 @@ private:
     static uint buzzerPower; // [0..100]
     static double timeZoneSec; // local time offset to UTC in seconds (from config timeZone)
     static ulong alrmSuspTime; // time in millis for each alarm being suspended after confirmation
-
-    static double convertValueToSI(const double value, const BoatDataFmt valueFormat); // Convert boat values from user input format to internal standard SI format
 
 public:
     Alarms(BoatValueList& boatValueList, CommonData* common, GwLog* log, GwApi* api);

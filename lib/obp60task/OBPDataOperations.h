@@ -80,7 +80,7 @@ private:
 
     bool calibrate(tInstance& instance, GwApi::BoatValue& bval);
     bool smooth(tInstance& instance, GwApi::BoatValue& bval);
-    static double convertOffsetToSI(BoatDataFmt format, double offset, const tOBPUnits& obpUnits); // user format input -> SI
+    static double convertOffsetToSI(const double offset, const BoatDataFmt format, const tOBPUnits& obpUnits); // user format input -> SI
     tInstance* findInstance(const String& name);
     tInstance* findInstance(const GwApi::BoatValue* bval);
     bool resolveFormat(tInstance& instance, GwApi::BoatValue& bval);

@@ -311,7 +311,7 @@ bool CalibrationData::smoothInstance(GwApi::BoatValue* boatDataValue)
 
 bool CalibrationData::calibrate(tInstance& instance, GwApi::BoatValue& bval)
 {
-    instance.isCalibrated = false; // reset calibration flag until properly calibrated
+    instance.isCalibrated = false;
 
     if (!bval.valid) { // no valid boat data value, so we don't want to apply calibration data
         return false;
@@ -323,7 +323,10 @@ bool CalibrationData::calibrate(tInstance& instance, GwApi::BoatValue& bval)
 
     // Late offset conversion because we need to wait for boat value and format getting known
     if (!instance.offsetValid) {
-        instance.offset = convertOffsetToSI(instance.format, instance.userOffset, obpUnits);
+        if (instance.format == BoatDataFmt::WINDSPEED && obpUnits.windspeedFormat == OBPUnits::BFT && instance.userOffset != 0.0) {
+            LOG_DEBUG(GwLog::LOG, "Calibration offset of %s is used as m/s, because wind speed unit is BFT", instance.name.c_str());
+        }
+        instance.offset = convertOffsetToSI(instance.userOffset, instance.format, obpUnits);
         instance.offsetValid = true;
     }
 
@@ -343,7 +346,7 @@ bool CalibrationData::calibrate(tInstance& instance, GwApi::BoatValue& bval)
         break;
     }
 
-    bval.value = value; // update boat data value with calibrated value
+    bval.value = value;
     instance.value = value; // keep the calibrated value in the entry
     instance.isCalibrated = true;
     return true;
@@ -383,48 +386,32 @@ bool CalibrationData::smooth(tInstance& instance, GwApi::BoatValue& bval)
 }
 
 // Convert calibration offset from the user format to SI
-double CalibrationData::convertOffsetToSI(BoatDataFmt format, double offset, const tOBPUnits& obpUnits)
+double CalibrationData::convertOffsetToSI(const double offset, const BoatDataFmt format, const tOBPUnits& obpUnits)
 {
     switch (format) {
-    case BoatDataFmt::WINDSPEED:
-        if (obpUnits.windspeedFormat == OBPUnits::KMH) {
-            return offset / 3.6; // km/h to m/s
-        }
-        if (obpUnits.windspeedFormat == OBPUnits::KN) {
-            return offset * (1852.0 / 3600.0); // kn to m/s
-        }
-        if (obpUnits.windspeedFormat == OBPUnits::BFT) {
-            offset = std::max(offset, 0.0);
-            return 0.836 * std::pow(offset, 1.5); // WMO standard empirical formula: v = 0.836 * B^1.5
-        }
-        return offset; // m/s
-
     case BoatDataFmt::COURSE:
     case BoatDataFmt::WIND:
     case BoatDataFmt::ROTATION:
     case BoatDataFmt::XDR_ATTITUDE:
         return offset * DEG_TO_RAD; // deg to rad
 
-    case BoatDataFmt::DEPTH:
-        if (obpUnits.lengthFormat == OBPUnits::FT) {
-            return offset * 0.3048; // ft to m
-        }
-        return offset; // m
-
-    case BoatDataFmt::SPEED:
-        if (obpUnits.speedFormat == OBPUnits::KMH) {
-            return offset / 3.6; // km/h to m/s
-        }
-        if (obpUnits.speedFormat == OBPUnits::KN) {
-            return offset * (1852.0 / 3600.0); // kn to m/s
-        }
-        return offset; // m/s
-
     case BoatDataFmt::TEMP:
         if (obpUnits.tempFormat == OBPUnits::F) {
             return offset * (5.0 / 9.0); // temperature difference: deg F to K
         }
         return offset; // K or deg C (same difference)
+
+    case BoatDataFmt::WINDSPEED:
+        if (obpUnits.windspeedFormat == OBPUnits::BFT) {
+            return offset; // Offset is taken as m/s with BFT, whatever the display unit is
+        }
+        return convertValueToSI(offset, format, &obpUnits);
+
+        case BoatDataFmt::DEPTH:
+    case BoatDataFmt::SPEED:
+    case BoatDataFmt::DISTANCE:
+    case BoatDataFmt::XTE:
+        return convertValueToSI(offset, format, &obpUnits);
 
     default:
         return offset; // no conversion for other formats

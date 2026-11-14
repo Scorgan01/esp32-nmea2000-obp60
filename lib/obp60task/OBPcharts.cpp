@@ -833,23 +833,6 @@ void Chart::drawBoldLine(const int16_t x1, const int16_t y1, const int16_t x2, c
     }
 }
 
-// Convert and format current axis label to user defined format; helper function for easier handling of OBP60Formatter
-String Chart::convNformatLabel(const double& label)
-{
-    GwApi::BoatValue tmpBVal(dbName); // temporary boat value for string formatter
-    String sVal;
-
-    tmpBVal.setFormat(dbFormat);
-    tmpBVal.valid = true;
-    tmpBVal.value = label;
-    sVal = formatValue(&tmpBVal, *commonData, NO_SIMUDATA).svalue; // Formatted value as string including unit conversion and switching decimal places
-    if (sVal.length() > 0 && sVal[0] == '!') {
-        sVal = sVal.substring(1); // cut leading "!" created at OBPFormatter; doesn't work for other fonts than 7SEG
-    }
-
-    return sVal;
-}
-
 // Format current axis label for printing w/o data format conversion (has been done earlier)
 String Chart::formatLabel(const double& label)
 {

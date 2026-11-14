@@ -128,6 +128,5 @@ protected:
     void prntHorizChartThreeValueAxisLabel(const GFXfont* font); // print value axis label with only three values: top, mid, and bottom for horizontal chart
     void prntHorizChartMultiValueAxisLabel(const GFXfont* font); // print value axis label with multiple axis lines for horizontal chart
     void drawBoldLine(const int16_t x1, const int16_t y1, const int16_t x2, const int16_t y2); // Draw chart line with thickness of 2px
-    String convNformatLabel(const double& label); // Convert and format current axis label to user defined format; helper function for easier handling of OBP60Formatter
     String formatLabel(const double& label); // Format current axis label for printing w/o data format conversion (has been done earlier)
 };

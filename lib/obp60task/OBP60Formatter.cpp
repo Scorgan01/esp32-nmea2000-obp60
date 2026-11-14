@@ -916,9 +916,9 @@ FormattedData formatValue(GwApi::BoatValue *value, CommonData &commondata, Strin
 }
 
 // Format double value from SI to user defined format and convert to string user defined precision setting
-String formatValue(const double &value, const String &format, CommonData &commondata, const bool dsegFont)
+String formatValue(const double &value, const String &name, const String &format, CommonData &commondata, const bool dsegFont)
 {
-    GwApi::BoatValue tmpBVal("dummy"); // temporary boat value for string formatter
+    GwApi::BoatValue tmpBVal(name); // temporary boat value for string formatter
     tmpBVal.setFormat(format);
     tmpBVal.valid = true;
     tmpBVal.value = value;
@@ -927,6 +927,12 @@ String formatValue(const double &value, const String &format, CommonData &common
         sVal = sVal.substring(1); // cut leading "!" created at OBPFormatter; doesn't work for other fonts than DSEG7
     }
     return sVal;
+}
+
+// Format double value from SI to user defined format and convert to string user defined precision setting
+String formatValue(const double &value, const String &format, CommonData &commondata, const bool dsegFont)
+{
+    return formatValue(value, "dummy", format, commondata, dsegFont);
 }
 
 // Helper method for conversion of any data value from SI to user defined format
@@ -942,8 +948,8 @@ double convertValue(const double &value, const String &name, const String &forma
     return formatValue(&tmpBVal, commondata, NO_SIMUDATA).cvalue; // get value (converted); ignore any simulation data setting
 }
 
-// Helper method for conversion of any data value from SI to user defined format
-// Doesn't actually work for speed data - requires clean-up
+// Conversion of any data value from SI to user defined format
+// Doesn't work for speed data
 double convertValue(const double &value, const String &format, CommonData &commondata)
 {
     return convertValue(value, "dummy", format, commondata);

@@ -466,6 +466,7 @@ void OBP60Task(GwApi *api){
     Alarms boatAlarms(boatValues, &commonData, logger, api); // List of all user defined alarm settings
 
     // Read user settings from config file
+    commonData.obpUnits = readUserConfig(config, logger); // User configuration for OBP unit settings
     bool calcTrueWnds = api->getConfig()->getBool(api->getConfig()->calcTrueWnds, false);
     bool smoothCharts = api->getConfig()->getBool(api->getConfig()->smoothCharts, false);
     bool useSimuData = api->getConfig()->getBool(api->getConfig()->useSimuData, false);
@@ -570,7 +571,6 @@ void OBP60Task(GwApi *api){
     String cpuspeed = api->getConfig()->getConfigItem(api->getConfig()->cpuSpeed,true)->asString();
     uint hdopAccuracy = uint(api->getConfig()->getConfigItem(api->getConfig()->hdopAccuracy,true)->asInt());
 
-    commonData.obpUnits = readUserConfig(config, logger);     // Read all user configuration for OBP unit settings
     double homelat = commonData.config->getString(commonData.config->homeLAT).toDouble();
     double homelon = commonData.config->getString(commonData.config->homeLON).toDouble();
     bool homevalid = homelat >= -180.0 and homelat <= 180 and homelon >= -90.0 and homelon <= 90.0;

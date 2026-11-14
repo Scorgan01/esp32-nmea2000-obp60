@@ -125,6 +125,15 @@ BoatDataFmt noteFormat(GwApi::BoatValue* bValue)
     }
 }
 
+BoatDataFmt noteFormat(const String &name, const String &format)
+{
+    GwApi::BoatValue tmpBVal(name);
+    tmpBVal.setFormat(format);
+    tmpBVal.valid = true;
+
+    return noteFormat(&tmpBVal);
+}
+
 // Convert value to internal standard SI format
 double convertValueToSI(const double value, const BoatDataFmt valueFormat, const tOBPUnits* m_obpUnits)
 {
@@ -195,6 +204,9 @@ double convertValueToSI(const double value, const BoatDataFmt valueFormat, const
             // No conversion needed
         }
         break;
+
+    default: // no conversion
+        break;
     }
 
     return result;
@@ -243,12 +255,11 @@ void CalibrationData::readConfig(GwConfigHandler* config)
             alpha = 1.0 - (0.3 + ((s - 0.01) * (0.95 - 0.3) / (10 - 0.01)));
         }
 
-        // Same instance configured twice: the later entry replaces the earlier one
         tInstance* entry = findInstance(instance);
         if (entry == nullptr) {
             entry = &instances[numInstances++];
         }
-        *entry = tInstance();
+        *entry = tInstance(); // Same instance configured twice: replace earlier instance
         entry->name = instance;
         entry->userOffset = userOffset;
         entry->slope = slope;
@@ -338,10 +349,14 @@ bool CalibrationData::calibrate(tInstance& instance, GwApi::BoatValue& bval)
     case BoatDataFmt::WIND: // wind angle data is stored in [0..2PI] format
         value = WindUtils::to2PI((value * instance.slope) + instance.offset);
         break;
+    case BoatDataFmt::ROTATION:
+    case BoatDataFmt::XDR_ATTITUDE:
+        value = WindUtils::toPI((value * instance.slope) + instance.offset);
+        break;
     case BoatDataFmt::TEMP:
         value = ((value - 273.15) * instance.slope) + instance.offset + 273.15;
         break;
-    default: // also used as long as the format is not known yet (NONE)
+    default: // SPEED, DEPTH, DISTANCE, XTE; also used if format is not known
         value = (value * instance.slope) + instance.offset;
         break;
     }
@@ -361,7 +376,7 @@ bool CalibrationData::smooth(tInstance& instance, GwApi::BoatValue& bval)
 
     if (instance.smooth >= 1.0) { // smoothing is switched off
         instance.value = bval.value;
-        return true;
+        return false;
     }
 
     if (!resolveFormat(instance, bval)) {
@@ -407,7 +422,7 @@ double CalibrationData::convertOffsetToSI(const double offset, const BoatDataFmt
         }
         return convertValueToSI(offset, format, &obpUnits);
 
-        case BoatDataFmt::DEPTH:
+    case BoatDataFmt::DEPTH:
     case BoatDataFmt::SPEED:
     case BoatDataFmt::DISTANCE:
     case BoatDataFmt::XTE:

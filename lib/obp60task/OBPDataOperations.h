@@ -41,6 +41,7 @@ enum class BoatDataFmt : uint8_t {
 
 tOBPUnits readUserConfig(GwConfigHandler* config, GwLog* logger); // Read all user configuration for OBP unit settings
 BoatDataFmt noteFormat(GwApi::BoatValue* bValue); // Initialize boat data format as a shorter version of boatValue->getFormat()
+BoatDataFmt noteFormat(const String &name, const String &format); // Overload: initialize boat data format with <boat value name> and <boat value format>
 double convertValueToSI(const double value, const BoatDataFmt valueFormat, const tOBPUnits* m_obpUnits); // Convert value to internal standard SI format
 
 // --- End general data helper ---------------

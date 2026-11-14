@@ -203,7 +203,7 @@ public:
             if (boatAlarms->getAlarmState(alarm) == Alarms::AlarmState::ACTIVE) {
                 i++;
 
-                if (i == 1 && !(alarm.format == Alarms::BoatDataFmt::DISTANCE || alarm.format == Alarms::BoatDataFmt::TIME)) {
+                if (i == 1 && !(alarm.format == BoatDataFmt::DISTANCE || alarm.format == BoatDataFmt::TIME)) {
                     // increase font size for 1st alarm because this is the alarm to be acknoledged; <POSITION> and <TIME> alarms are too large for this font size
                     textFnt = &Ubuntu_Bold12pt8b;
                     numFnt = &DSEG7Classic_BoldItalic16pt7b;
@@ -218,9 +218,9 @@ public:
                 String svalue = formatValue(bvalue, *commonData).svalue;
                 String unit = formatValue(bvalue, *commonData).unit; // Unit of current boat value
                 String limitUnit = unit;                        // Unit of alarm limit value; usually the same than boat value unit
-                if (alarm.format == Alarms::BoatDataFmt::TIME) {
+                if (alarm.format == BoatDataFmt::TIME) {
                     svalue = svalue.substring(0,5);             // truncate seconds from time format output
-                } else if (alarm.format == Alarms::BoatDataFmt::DISTANCE && distanceFormat == "m" && bvalue->value > 999.99) {
+                } else if (alarm.format == BoatDataFmt::DISTANCE && distanceFormat == "m" && bvalue->value > 999.99) {
                     svalue = formatValue(bvalue->value / 1000.0, bvalue->getFormat(), *commonData);
                     unit = "km";
                 }
@@ -240,9 +240,9 @@ public:
                 if (boatAlarms->triggeredByLow(alarm)) {
                     threshold = alarm.lowLimit; }
                 String sThreshold = formatValue(threshold, bvalue->getFormat(), *commonData);
-                if (alarm.format == Alarms::BoatDataFmt::TIME) {
+                if (alarm.format == BoatDataFmt::TIME) {
                     sThreshold = sThreshold.substring(0,5); // truncate seconds from time format output
-                } else if (alarm.format == Alarms::BoatDataFmt::DISTANCE && distanceFormat == "m" && threshold > 999.99) {
+                } else if (alarm.format == BoatDataFmt::DISTANCE && distanceFormat == "m" && threshold > 999.99) {
                     sThreshold = formatValue(threshold / 1000.0, bvalue->getFormat(), *commonData);
                     limitUnit = "km";
                 }

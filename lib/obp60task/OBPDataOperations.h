@@ -60,35 +60,30 @@ private:
     struct tInstance {
         GwApi::BoatValue* bval = nullptr;
         String name; // boat data name
-        double offset = 0.0; // calibration offset (SI units)
+        BoatDataFmt format = BoatDataFmt::NONE; // short format of boat value
+        double userOffset = 0.0; // calibration offset as entered by the user (user units)
+        double offset = 0.0; // calibration offset (SI units); valid when offsetValid
+        bool offsetValid = false; // offset has been converted to SI (requires known boat data format)
         double slope = 1.0; // calibration slope
         double smooth = 1.0; // weight in exponential smoothing; 1.0 = no smoothing
-        BoatDataFmt format = BoatDataFmt::NONE; // short format of boat value
         double lastValue = 0.0; // last smoothed value
         bool hasLast = false; // lastValue is valid
         double value = 0.0; // calibrated data value (for future use)
         bool isCalibrated = false; // is data instance value calibrated? (for future use)
     };
 
-    enum class UnitCategory : uint8_t { WindSpeed, Angle, Length, Speed, Temperature };
-
-    struct tInstanceInfo {
-        const char* name; // boat data name
-        UnitCategory category;
-    };
-
     static constexpr int8_t MAX_CALIBRATION_DATA = 4; // maximum number of calibration data instances
     std::array<tInstance, MAX_CALIBRATION_DATA> instances;
     uint8_t numInstances = 0;
+    tOBPUnits obpUnits; // user unit settings
     GwLog* logger;
 
-    static const tInstanceInfo* findInstanceInfo(const String& name); // supported boat data type
-    static bool calibrate(tInstance& instance, GwApi::BoatValue& bval);
-    static bool smooth(tInstance& instance, GwApi::BoatValue& bval);
-    static double convertOffsetToSI(UnitCategory category, double offset, const tOBPUnits& OBPUnits); // user format input -> SI
+    bool calibrate(tInstance& instance, GwApi::BoatValue& bval);
+    bool smooth(tInstance& instance, GwApi::BoatValue& bval);
+    static double convertOffsetToSI(BoatDataFmt format, double offset, const tOBPUnits& obpUnits); // user format input -> SI
     tInstance* findInstance(const String& name);
     tInstance* findInstance(const GwApi::BoatValue* bval);
-    static void resolveFormat(tInstance& instance, GwApi::BoatValue& bval);
+    bool resolveFormat(tInstance& instance, GwApi::BoatValue& bval);
 };
 
 struct tHistoryParams {

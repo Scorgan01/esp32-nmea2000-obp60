@@ -208,35 +208,6 @@ CalibrationData::CalibrationData(GwLog* log)
 {
 }
 
-// Look up a supported boat data type; same list as in config.json
-const CalibrationData::tInstanceInfo* CalibrationData::findInstanceInfo(const String& name)
-{
-    static const tInstanceInfo instanceType[] = {
-        { "AWA", UnitCategory::Angle },
-        { "AWS", UnitCategory::WindSpeed },
-        { "COG", UnitCategory::Angle },
-        { "DBS", UnitCategory::Length },
-        { "DBT", UnitCategory::Length },
-        { "HDM", UnitCategory::Angle },
-        { "HDT", UnitCategory::Angle },
-        { "PRPOS", UnitCategory::Angle },
-        { "RPOS", UnitCategory::Angle },
-        { "SOG", UnitCategory::Speed },
-        { "STW", UnitCategory::Speed },
-        { "TWA", UnitCategory::Angle },
-        { "TWS", UnitCategory::WindSpeed },
-        { "TWD", UnitCategory::Angle },
-        { "WTemp", UnitCategory::Temperature },
-    };
-
-    for (const tInstanceInfo& info : instanceType) {
-        if (name == info.name) {
-            return &info;
-        }
-    }
-    return nullptr;
-}
-
 // Initial load of calibration data into internal list
 // This method is called once at init phase of <obp60task> to read the configuration values
 void CalibrationData::readConfig(GwConfigHandler* config)
@@ -248,7 +219,7 @@ void CalibrationData::readConfig(GwConfigHandler* config)
     numInstances = 0;
 
     // Load user format configuration values
-    const tOBPUnits obpUnits = readUserConfig(config, logger);
+    obpUnits = readUserConfig(config, logger);
 
     // Read calibration settings for data instances
     for (int i = 0; i < MAX_CALIBRATION_DATA; i++) {
@@ -258,16 +229,9 @@ void CalibrationData::readConfig(GwConfigHandler* config)
             LOG_DEBUG(GwLog::LOG, "No calibration data for instance no. %d", i + 1);
             continue;
         }
-        const tInstanceInfo* info = findInstanceInfo(instance);
-        if (info == nullptr) {
-            LOG_DEBUG(GwLog::LOG, "Calibration data for instance no. %d ignored, unsupported type: %s", i + 1, instance.c_str());
-            continue;
-        }
-        double offset = config->getString("calOffset" + number, "").toDouble();
+        const double userOffset = config->getString("calOffset" + number, "").toDouble(); // converted to SI once the boat data format is known
         double slope = config->getString("calSlope" + number, "").toDouble();
         const long smoothSetting = config->getString("calSmooth" + number, "").toInt();
-
-        offset = convertOffsetToSI(info->category, offset, obpUnits);
 
         if (slope == 0.0) {
             slope = 1.0; // empty or "0" would set every boat value to "0"
@@ -286,12 +250,12 @@ void CalibrationData::readConfig(GwConfigHandler* config)
         }
         *entry = tInstance();
         entry->name = instance;
-        entry->offset = offset;
+        entry->userOffset = userOffset;
         entry->slope = slope;
         entry->smooth = alpha;
 
-        LOG_DEBUG(GwLog::LOG, "Calibration data type added: %s, offset: %f, slope: %f, smoothing: %f", instance.c_str(),
-            entry->offset, entry->slope, entry->smooth);
+        LOG_DEBUG(GwLog::LOG, "Calibration data type added: %s, offset (user unit): %f, slope: %f, smoothing: %f", instance.c_str(),
+            entry->userOffset, entry->slope, entry->smooth);
     }
 }
 
@@ -353,7 +317,15 @@ bool CalibrationData::calibrate(tInstance& instance, GwApi::BoatValue& bval)
         return false;
     }
 
-    resolveFormat(instance, bval);
+    if (!resolveFormat(instance, bval)) { // format unknown: offset cannot be converted to SI yet
+        return false;
+    }
+
+    // Late offset conversion because we need to wait for boat value and format getting known
+    if (!instance.offsetValid) {
+        instance.offset = convertOffsetToSI(instance.format, instance.userOffset, obpUnits);
+        instance.offsetValid = true;
+    }
 
     double value = bval.value;
     switch (instance.format) {
@@ -389,7 +361,9 @@ bool CalibrationData::smooth(tInstance& instance, GwApi::BoatValue& bval)
         return true;
     }
 
-    resolveFormat(instance, bval);
+    if (!resolveFormat(instance, bval)) {
+        return false;
+    }
 
     double value = bval.value;
     if (instance.hasLast) { // first time, only store the current value
@@ -409,10 +383,10 @@ bool CalibrationData::smooth(tInstance& instance, GwApi::BoatValue& bval)
 }
 
 // Convert calibration offset from the user format to SI
-double CalibrationData::convertOffsetToSI(UnitCategory category, double offset, const tOBPUnits& obpUnits)
+double CalibrationData::convertOffsetToSI(BoatDataFmt format, double offset, const tOBPUnits& obpUnits)
 {
-    switch (category) {
-    case UnitCategory::WindSpeed:
+    switch (format) {
+    case BoatDataFmt::WINDSPEED:
         if (obpUnits.windspeedFormat == OBPUnits::KMH) {
             return offset / 3.6; // km/h to m/s
         }
@@ -425,16 +399,19 @@ double CalibrationData::convertOffsetToSI(UnitCategory category, double offset, 
         }
         return offset; // m/s
 
-    case UnitCategory::Angle:
+    case BoatDataFmt::COURSE:
+    case BoatDataFmt::WIND:
+    case BoatDataFmt::ROTATION:
+    case BoatDataFmt::XDR_ATTITUDE:
         return offset * DEG_TO_RAD; // deg to rad
 
-    case UnitCategory::Length:
+    case BoatDataFmt::DEPTH:
         if (obpUnits.lengthFormat == OBPUnits::FT) {
             return offset * 0.3048; // ft to m
         }
         return offset; // m
 
-    case UnitCategory::Speed:
+    case BoatDataFmt::SPEED:
         if (obpUnits.speedFormat == OBPUnits::KMH) {
             return offset / 3.6; // km/h to m/s
         }
@@ -443,13 +420,15 @@ double CalibrationData::convertOffsetToSI(UnitCategory category, double offset, 
         }
         return offset; // m/s
 
-    case UnitCategory::Temperature:
+    case BoatDataFmt::TEMP:
         if (obpUnits.tempFormat == OBPUnits::F) {
             return offset * (5.0 / 9.0); // temperature difference: deg F to K
         }
         return offset; // K or deg C (same difference)
+
+    default:
+        return offset; // no conversion for other formats
     }
-    return offset;
 }
 
 CalibrationData::tInstance* CalibrationData::findInstance(const String& name)
@@ -472,10 +451,16 @@ CalibrationData::tInstance* CalibrationData::findInstance(const GwApi::BoatValue
     return nullptr;
 }
 
-void CalibrationData::resolveFormat(tInstance& instance, GwApi::BoatValue& bval)
+// Resolve the boat data format as soon as the format of the boat value is known
+bool CalibrationData::resolveFormat(tInstance& instance, GwApi::BoatValue& bval)
 {
-    if (instance.format == BoatDataFmt::NONE) { // Instance format stays NONE and is looked up again on the next call.
+    if (instance.format == BoatDataFmt::NONE) {
         instance.format = noteFormat(&bval);
+    }
+    if (instance.format == BoatDataFmt::NONE) {
+        return false;
+    } else {
+        return true;
     }
 }
 // --- End Class CalibrationData ---------------

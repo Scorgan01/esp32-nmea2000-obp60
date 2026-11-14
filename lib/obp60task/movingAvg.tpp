@@ -9,6 +9,7 @@
 template <typename T>
 void movingAvg<T>::begin()
 {
+    delete [] m_readings;
     m_readings = new T[m_interval];
 }
 
@@ -16,6 +17,10 @@ void movingAvg<T>::begin()
 template <typename T>
 T movingAvg<T>::reading(T newReading)
 {
+    if (m_readings == nullptr) {
+        return newReading;
+    }
+
     // add each new data point to the sum until the m_readings array is filled
     if (m_nbrReadings < m_interval) {
         ++m_nbrReadings;
@@ -87,6 +92,7 @@ void movingAvg<T>::reset()
 template <typename T>
 void movingAvgAngle<T>::begin()
 {
+    delete [] m_buffer;
     m_buffer = new T[m_interval];
 }
 
@@ -94,6 +100,10 @@ void movingAvgAngle<T>::begin()
 template <typename T>
 T movingAvgAngle<T>::reading(T newReading)
 {
+    if (m_buffer == nullptr) {
+        return newReading;
+    }
+
     double s = std::sin(newReading);
     double c = std::cos(newReading);
 
@@ -154,7 +164,7 @@ T movingAvgAngle<T>::getAvg(int nPoints)
     }
 
     // check size of vector; if near 0, set it to 0
-    const double len = m_sumSin * m_sumSin + m_sumCos * m_sumCos;
+    const double len = sumSin * sumSin + sumCos * sumCos;
     if (len < 1e-24)
         return 0.0;   // average direction undefined  
 

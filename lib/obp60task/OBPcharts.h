@@ -2,6 +2,7 @@
 #pragma once
 #include "Pagedata.h"
 #include "OBP60Extensions.h"
+#include "OBPDataOperations.h"
 #include "movingAvg.h"
 
 struct Pos {
@@ -43,18 +44,6 @@ protected:
     CommonData* commonData;
     GwLog* logger;
 
-    enum ChrtDataFormat {
-        COURSE,
-        DEPTH,
-        HUMIDITY,
-        PRESSURE,
-        ROTATION,
-        SPEED,
-        TEMPERATURE,
-        WIND,
-        OTHER
-    };
-
     static constexpr int8_t MIN_FREE_VALUES = 60; // free 60 values when chart line reaches chart end
     static constexpr int8_t THRESHOLD_NO_DATA = 3; // max. seconds of invalid values in a row
     static constexpr int8_t VALAXIS_SLOTS = 5; // no. of value axis labels
@@ -63,7 +52,6 @@ protected:
 
     struct tDfltChrtDta {
         const char* format;
-//        const ChrtDataFormat format;
         tChrtProps props;
     };
 
@@ -106,7 +94,7 @@ protected:
     bool allLeft = true, allRight = true; // indicate whether all chart points are left or right of middle value (only for wind data type)
 
     String dbName = "", dbFormat = ""; // Name and format of data buffer
-    ChrtDataFormat chrtDataFmt = OTHER; // Data format of chart boat data type
+    BoatDataFmt chrtDataFmt = BoatDataFmt::OTHER; // Data format of chart boat data type
     double dbMIN_VAL = 0.0; // Lowest possible value of buffer of type <T>
     double dbMAX_VAL = 0.0; // Highest possible value of buffer of type <T>; indicates invalid value in buffer
     size_t bufSize = 1920 ; // History buffer size: 1.920 values for 32 min. history chart

@@ -1,6 +1,5 @@
 // Function lib for display of boat data in various chart formats
 #include "OBPcharts.h"
-#include "OBPDataOperations.h"
 #include "OBPRingBuffer.h"
 
 // --- Class Chart ---------------
@@ -55,42 +54,22 @@ bool Chart::initChart()
     dbMIN_VAL = dataBuf.getMinVal();
     dbMAX_VAL = dataBuf.getMaxVal();
     bufSize = dataBuf.getCapacity();
-    // LOG_DEBUG(GwLog::DEBUG, "Chart Init: dbMIN_VAL: %.2f, dbMAX_VAL: %.2fd, bufSize: %d", dbMIN_VAL, dbMAX_VAL, bufSize);
-
-    // Initialize chart data format; shorter version of standard format indicator
-    if (dbFormat == "formatCourse") {
-        chrtDataFmt = COURSE; // Chart is showing data of course <degree> format
-    } else if (dbFormat == "formatWind") {
-        chrtDataFmt = WIND; // Chart is showing data of wind <degree> format
-    } else if (dbFormat == "formatRot") {
-        chrtDataFmt = ROTATION; // Chart is showing data of rotational <degree> format
-    } else if (dbFormat == "formatKnots") {
-        chrtDataFmt = SPEED; // Chart is showing data of speed or windspeed format
-    } else if (dbFormat == "formatDepth") {
-        chrtDataFmt = DEPTH;
-    } else if (dbFormat == "kelvinToC") {
-        chrtDataFmt = TEMPERATURE;
-    } else if (dbFormat.startsWith("formatXdr:P")) {
-        chrtDataFmt = PRESSURE;
-    } else if (dbFormat.startsWith("formatXdr:H")) {
-        chrtDataFmt = HUMIDITY;
-    } else {
-        chrtDataFmt = OTHER; // Chart is showing any other data format
-    }
+    chrtDataFmt = noteFormat(dbName, dbFormat); // register short version for boat data format
 
     // "0" value is the same for any data format but for user defined temperature and pressure format
     zeroValue = 0.0;
-    if (chrtDataFmt == TEMPERATURE) {
-        tempFormat = commonData->config->getString(commonData->config->tempFormat); // [K|°C|°F]
-        if (tempFormat == "K") {
+    if (chrtDataFmt == BoatDataFmt::TEMP) {
+        if (commonData->obpUnits.tempFormat == OBPUnits::K) {
             zeroValue = 0.0;
-        } else if (tempFormat == "C") {
+        } else if (commonData->obpUnits.tempFormat == OBPUnits::C) {
             zeroValue = 273.15;
-        } else if (tempFormat == "F") {
+        } else if (commonData->obpUnits.tempFormat == OBPUnits::F) {
             zeroValue = 255.37;
         }
-    } else if (chrtDataFmt == PRESSURE) {
-        zeroValue = 98000.0; // typical low pressure area value
+    } else if (chrtDataFmt == BoatDataFmt::XDR_PRESSUREBAR) {
+        zeroValue = 0.98; // typical low pressure value
+    } else if (chrtDataFmt == BoatDataFmt::XDR_PRESSUREPA) {
+        zeroValue = 98000.0; // typical low pressure value
     }
 
     // Read default range and range step for this chart type
@@ -275,10 +254,10 @@ void Chart::getBufferStartNSize(const int8_t chrtIntv)
 // check and adjust chart range and set range borders and range middle
 void Chart::calcChrtBorders(double& rngMin, double& rngMid, double& rngMax, double& rng)
 {
-    if (chrtDataFmt == WIND || chrtDataFmt == ROTATION) {
+    if (chrtDataFmt == BoatDataFmt::WIND || chrtDataFmt == BoatDataFmt::ROTATION) {
 
         // calculate rngMid
-        if (chrtDataFmt == ROTATION) {
+        if (chrtDataFmt == BoatDataFmt::ROTATION) {
             // if chart data is of type 'rotation', we want to have <rndMid> always to be '0'
             rngMid = 0;
 
@@ -386,7 +365,7 @@ void Chart::drawChartLines(const ChrtDir chrtDir, const int8_t chrtIntv, const d
             if ((i == 0) || (chrtPrevVal == dbMAX_VAL)) {
                 prevPoint = point; // just a dot for 1st chart point or after some invalid values
 
-            } else if (chrtDataFmt == WIND || chrtDataFmt == ROTATION) {
+            } else if (chrtDataFmt == BoatDataFmt::WIND || chrtDataFmt == BoatDataFmt::ROTATION) {
                 // cross borders check for degree values; shift values to [-PI..0..PI]; when crossing borders, range is 2x PI degrees
 
                 double normCurrVal = WindUtils::to2PI(chrtVal - chrtMin);
@@ -420,7 +399,7 @@ void Chart::drawChartLines(const ChrtDir chrtDir, const int8_t chrtIntv, const d
                 }
             }
 
-            if (chrtDataFmt == DEPTH) {
+            if (chrtDataFmt == BoatDataFmt::DEPTH) {
                 if (chrtDir == HORIZONTAL) { // horizontal chart
                     drawBoldLine(point.x, point.y, point.x, cRoot.y + valAxis);
                 } else { // vertical chart
@@ -438,7 +417,7 @@ void Chart::drawChartLines(const ChrtDir chrtDir, const int8_t chrtIntv, const d
         if (i >= timAxis - 1) {
             oldChrtIntv = 0; // force reset of buffer start and number of values to show in next display loop
 
-            if (chrtDataFmt == WIND) {
+            if (chrtDataFmt == BoatDataFmt::WIND) {
                 if (allLeft || allRight || chrtRng == M_TWOPI) { // check if we should recalculate chart axis middle value
                     recalcRngMid = true;
                 }
@@ -462,9 +441,9 @@ Pos Chart::setChartPoint(const int i, const ChrtDir chrtDir, const double chrtVa
     if (chrtDir == HORIZONTAL) {
         currentPoint.x = cRoot.x + i; // Position in chart area
 
-        if (chrtDataFmt == WIND || chrtDataFmt == ROTATION) { // degree type value
+        if (chrtDataFmt == BoatDataFmt::WIND || chrtDataFmt == BoatDataFmt::ROTATION) { // degree type value
             currentPoint.y = cRoot.y + static_cast<int>((WindUtils::to2PI(chrtVal - chrtMin) * chrtScale) + 0.5); // calculate chart point and round
-        } else if (chrtDataFmt == WIND || chrtDataFmt == ROTATION || chrtDataFmt == DEPTH) { // print low values at bottom
+        } else if (chrtDataFmt == BoatDataFmt::WIND || chrtDataFmt == BoatDataFmt::ROTATION || chrtDataFmt == BoatDataFmt::DEPTH) { // print low values at bottom
             currentPoint.y = cRoot.y + static_cast<int>(((chrtVal - chrtMin) * chrtScale) + 0.5); // calculate chart point and round
         } else { // any other data format
             currentPoint.y = cRoot.y + valAxis - static_cast<int>(((chrtVal - chrtMin) * chrtScale) + 0.5); // calculate chart point and round
@@ -473,7 +452,7 @@ Pos Chart::setChartPoint(const int i, const ChrtDir chrtDir, const double chrtVa
     } else { // vertical chart
         currentPoint.y = cRoot.y + timAxis - i; // Position in chart area
 
-        if (chrtDataFmt == WIND || chrtDataFmt == ROTATION) { // degree type value
+        if (chrtDataFmt == BoatDataFmt::WIND || chrtDataFmt == BoatDataFmt::ROTATION) { // degree type value
             currentPoint.x = cRoot.x + static_cast<int>((WindUtils::to2PI(chrtVal - chrtMin) * chrtScale) + 0.5); // calculate chart point and round
         } else {
             currentPoint.x = cRoot.x + static_cast<int>(((chrtVal - chrtMin) * chrtScale) + 0.5); // calculate chart point and round
@@ -553,7 +532,7 @@ void Chart::drawChrtValAxis(const ChrtDir chrtDir, const ChrtSize chrtSz, const 
                 String name = xdrDelete(dbName); // Value name
                 drawTextRalign(cRoot.x + timAxis - 1, cRoot.y + 19, name.substring(0, 5));
             }
-            if (chrtDataFmt == WIND) {
+            if (chrtDataFmt == BoatDataFmt::WIND) {
                 prntHorizChartThreeValueAxisLabel(font);
                 return;
             }
@@ -743,9 +722,9 @@ void Chart::prntHorizChartThreeValueAxisLabel(const GFXfont* font)
     chrtMax = convertValue(this->chrtMax, dbName, dbFormat, *commonData);
 
     // print top axis label
-    axLabel = (chrtDataFmt == WIND || chrtDataFmt == ROTATION || chrtDataFmt == DEPTH) ? chrtMin : chrtMax;
+    axLabel = (chrtDataFmt == BoatDataFmt::WIND || chrtDataFmt == BoatDataFmt::ROTATION || chrtDataFmt == BoatDataFmt::DEPTH) ? chrtMin : chrtMax;
     formatLabel(axLabel).toCharArray(sVal, 11);
-    if (chrtDataFmt == PRESSURE) {
+    if (chrtDataFmt == BoatDataFmt::XDR_PRESSUREBAR || chrtDataFmt == BoatDataFmt::XDR_PRESSUREPA) {
         snprintf(sVal, sizeof(sVal), "%4.0f", axLabel);
         getdisplay().fillRect(cRoot.x, cRoot.y + 2, xOffset + 12, yOffset, bgColor); // Clear small area to remove potential chart lines
         drawTextRalign(cRoot.x + xOffset + 11, cRoot.y + yOffset, sVal); // range value
@@ -759,7 +738,7 @@ void Chart::prntHorizChartThreeValueAxisLabel(const GFXfont* font)
     // print mid axis label
     axLabel = chrtMid;
     formatLabel(axLabel).toCharArray(sVal, 11);
-    if (chrtDataFmt == PRESSURE) { // print 4-digit value
+    if (chrtDataFmt == BoatDataFmt::XDR_PRESSUREBAR || chrtDataFmt == BoatDataFmt::XDR_PRESSUREPA) { // print 4-digit value
         getdisplay().fillRect(cRoot.x, cRoot.y + (valAxis / 2) - 8, xOffset + 12, yOffset, bgColor); // Clear small area to remove potential chart lines
         drawTextRalign(cRoot.x + xOffset + 11, cRoot.y + (valAxis / 2) + 6, sVal); // range value
         getdisplay().drawLine(cRoot.x + xOffset + 14, cRoot.y + (valAxis / 2), cRoot.x + timAxis, cRoot.y + (valAxis / 2), fgColor);
@@ -770,9 +749,9 @@ void Chart::prntHorizChartThreeValueAxisLabel(const GFXfont* font)
     }
 
     // print bottom axis label
-    axLabel = (chrtDataFmt == WIND || chrtDataFmt == ROTATION || chrtDataFmt == DEPTH) ? chrtMax : chrtMin;
+    axLabel = (chrtDataFmt == BoatDataFmt::WIND || chrtDataFmt == BoatDataFmt::ROTATION || chrtDataFmt == BoatDataFmt::DEPTH) ? chrtMax : chrtMin;
     formatLabel(axLabel).toCharArray(sVal, 11);
-    if (chrtDataFmt == PRESSURE) {
+    if (chrtDataFmt == BoatDataFmt::XDR_PRESSUREBAR || chrtDataFmt == BoatDataFmt::XDR_PRESSUREPA) {
         getdisplay().fillRect(cRoot.x, cRoot.y + valAxis - 14, xOffset + 12, yOffset, bgColor); // Clear small area to remove potential chart lines
         drawTextRalign(cRoot.x + xOffset + 11, cRoot.y + valAxis, sVal); // range value
         getdisplay().drawLine(cRoot.x + xOffset + 14, cRoot.y + valAxis, cRoot.x + timAxis, cRoot.y + valAxis, fgColor);
@@ -811,7 +790,7 @@ void Chart::prntHorizChartMultiValueAxisLabel(const GFXfont* font)
     // LOG_DEBUG(GwLog::DEBUG, "Chart::printHorizMultiValueAxisLabel: chrtRng: %.2f, th-chrtRng: %.2f, axSlots: %.2f, axIntv: %.2f, axLabel: %.2f, chrtMin: %.2f, chrtMid: %.2f, chrtMax: %.2f", chrtRng, this->chrtRng, VALAXIS_SLOTS, axIntv, axLabel, this->chrtMin, chrtMid, chrtMax);
 
     int loopStrt, loopEnd, loopStp;
-    if (chrtDataFmt == WIND || chrtDataFmt == ROTATION || chrtDataFmt == DEPTH) {
+    if (chrtDataFmt == BoatDataFmt::WIND || chrtDataFmt == BoatDataFmt::ROTATION || chrtDataFmt == BoatDataFmt::DEPTH) {
         // Low value at top
         loopStrt = valAxisStep;
         loopEnd = valAxis - (valAxisStep / 2);
@@ -825,7 +804,7 @@ void Chart::prntHorizChartMultiValueAxisLabel(const GFXfont* font)
 
     for (int j = loopStrt; (loopStp > 0) ? (j < loopEnd) : (j > loopEnd); j += loopStp) {
         formatLabel(axLabel).toCharArray(sVal, 11);
-        if (chrtDataFmt == PRESSURE) { // print 4-digit value
+        if (chrtDataFmt == BoatDataFmt::XDR_PRESSUREBAR || chrtDataFmt == BoatDataFmt::XDR_PRESSUREPA) { // print 4-digit value
             getdisplay().fillRect(cRoot.x, cRoot.y + j - 11, xOffset + 12, 21, bgColor); // Clear small area to remove potential chart lines
             drawTextRalign(cRoot.x + xOffset + 11, cRoot.y + j + 7, sVal); // range value
             getdisplay().drawLine(cRoot.x + xOffset + 14, cRoot.y + j, cRoot.x + timAxis, cRoot.y + j, fgColor);
@@ -876,17 +855,17 @@ String Chart::formatLabel(const double& label)
 {
     char sVal[11];
 
-    if (chrtDataFmt == WIND) {
+    if (chrtDataFmt == BoatDataFmt::WIND) {
         snprintf(sVal, sizeof(sVal), "%03.0f", label); // Format 3 numbers with prefix zero
 
-    } else if (chrtDataFmt == ROTATION) {
+    } else if (chrtDataFmt == BoatDataFmt::ROTATION) {
         if (label > -9.995 && label < 9.995) {
             snprintf(sVal, sizeof(sVal), "%3.2f", label);
         } else {
             snprintf(sVal, sizeof(sVal), "%3.0f", label);
         }
 
-    } else if (chrtDataFmt == PRESSURE) {
+    } else if (chrtDataFmt == BoatDataFmt::XDR_PRESSUREBAR || chrtDataFmt == BoatDataFmt::XDR_PRESSUREPA) {
         snprintf(sVal, sizeof(sVal), "%4.0f", label);
 
     } else {

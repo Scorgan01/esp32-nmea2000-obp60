@@ -61,13 +61,7 @@ private:
     GwLog* logger;
     GwApi* m_api;
 
-    // User settings for various boat data formats
-    static String lengthFormat; // [m|ft]
-    static String distanceFormat; // [m|km|nm]
-    static String speedFormat; // [m/s|km/h|kn]
-    static String windspeedFormat; // [m/s|km/h|kn|bft]
-    static String tempFormat; // [K|C|F]
-    static uint buzzerPower; // [0..100]
+    // User settings for some alarm config items
     static double timeZoneSec; // local time offset to UTC in seconds (from config timeZone)
     static ulong alrmSuspTime; // time in millis for each alarm being suspended after confirmation
 

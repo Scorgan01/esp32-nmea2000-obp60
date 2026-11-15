@@ -1,12 +1,6 @@
 #include "OBPAlarms.h"
 #include "OBP60Extensions.h"
 
-String Alarms::lengthFormat = "";
-String Alarms::distanceFormat = "";
-String Alarms::speedFormat = "";
-String Alarms::windspeedFormat = "";
-String Alarms::tempFormat = "";
-uint Alarms::buzzerPower = 0;
 double Alarms::timeZoneSec = 0.0;
 ulong Alarms::alrmSuspTime = 0;
 
@@ -129,12 +123,6 @@ void Alarms::readConfig(GwConfigHandler* config)
     alarmList.reserve(MAX_ALARMS);
 
     // Read user settings
-    lengthFormat = config->getString(config->lengthFormat);
-    distanceFormat = config->getString(config->distanceFormat);
-    speedFormat = config->getString(config->speedFormat);
-    windspeedFormat = config->getString(config->windspeedFormat);
-    tempFormat = config->getString(config->tempFormat);
-    buzzerPower = uint(config->getString(config->buzzerPower, "100").toInt());
     timeZoneSec = double(int(config->getConfigItem(config->timeZone, true)->asFloat() * 3600.0));
     alrmSuspTime = ulong(config->getString(config->almSuspTime, "60").toInt() * 1000 * 60); // user setting is in minutes
 

@@ -463,7 +463,7 @@ void OBP60Task(GwApi *api){
     HstryBuffers hstryBufferList(1920, &boatValues, logger);  // Create empty list of boat data history buffers (1.920 values = seconds = 32 min.)
     WindUtils trueWind(&boatValues, logger);  // Create helper object for true wind calculation
     CalibrationData calibrationDataList(logger); // all boat data types which are supposed to be calibrated
-    Alarms boatAlarms(boatValues, &commonData, logger, api); // List of all user defined alarm settings
+    Alarms boatAlarms(boatValues, &commonData, api); // List of all user defined alarm settings
 
     // Read user settings from config file
     commonData.obpUnits = readUserConfig(config, logger); // User configuration for OBP unit settings

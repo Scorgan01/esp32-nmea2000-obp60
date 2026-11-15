@@ -104,12 +104,12 @@ static bool timeOfDayHit(double nowSec, double triggerSec)
     return diff < TIME_ALARM_WINDOW;
 }
 
-Alarms::Alarms(BoatValueList& boatValueList, CommonData* common, GwLog* log, GwApi* api)
+Alarms::Alarms(BoatValueList& boatValueList, CommonData* common, GwApi* api)
     : m_boatValueList(boatValueList)
     , m_common(common)
-    , logger(log)
     , m_api(api)
 {
+    logger = m_common->logger;
 }
 
 // Initial load of alarm definitions into internal list

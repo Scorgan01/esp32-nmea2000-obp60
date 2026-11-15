@@ -72,7 +72,7 @@ private:
     static ulong alrmSuspTime; // time in millis for each alarm being suspended after confirmation
 
 public:
-    Alarms(BoatValueList& boatValueList, CommonData* common, GwLog* log, GwApi* api);
+    Alarms(BoatValueList& boatValueList, CommonData* common, GwApi* api);
     ~Alarms() = default;
     void readConfig(GwConfigHandler* config);
     void initAlarmData(); // Initialize alarm parameters for each alarm type

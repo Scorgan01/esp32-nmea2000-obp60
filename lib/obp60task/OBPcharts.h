@@ -3,7 +3,6 @@
 #include "Pagedata.h"
 #include "OBP60Extensions.h"
 #include "OBPDataOperations.h"
-#include "movingAvg.h"
 
 struct Pos {
     int x;

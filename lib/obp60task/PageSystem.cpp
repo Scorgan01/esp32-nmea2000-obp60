@@ -54,6 +54,8 @@ private:
 
     String systemName;
     String apPasswd;
+    int8_t wifiLvl;     // client wifi signal strength
+    int8_t signalCnt;   // Counter for display of wifi signal strength
 
     char mode = 'N'; // (N)ormal, (S)ettings, (C)onfiguration, (D)evice list, c(A)rd
 
@@ -125,7 +127,7 @@ private:
 
         char ssid[13];
         snprintf(ssid, 13, "%04X%08X", (uint16_t)(chipid >> 32), (uint32_t)chipid);
-        displayBarcode(String(ssid), 320, 200, 2);
+        displayBarcode(String(ssid), 320, 210, 2);
         getdisplay().setCursor(8, 70);
         getdisplay().print(String("MCUDEVICE-") + String(ssid));
 
@@ -147,7 +149,7 @@ private:
         getdisplay().print("; GxEPD2 v");
         getdisplay().print(GXEPD2INFO);
 
-        getdisplay().setCursor(8, 265);
+        getdisplay().setCursor(8, y0 + 96);
 #ifdef BOARD_OBP60S3
         getdisplay().print("Press STBY to enter deep sleep mode");
 #endif
@@ -205,34 +207,41 @@ private:
                 uptime_unit = " days";
             }
         }
-        getdisplay().setCursor(8, y0 + 80);
+        getdisplay().setCursor(8, y0 + 64);
         getdisplay().print("Uptime:");
-        getdisplay().setCursor(90, y0 + 80);
+        getdisplay().setCursor(90, y0 + 64);
         getdisplay().print(uptime);
         getdisplay().print(uptime_unit);
 
         // CPU speed config / active
-        getdisplay().setCursor(202, y0);
+        getdisplay().setCursor(185, y0);
         getdisplay().print("CPU speed:");
-        getdisplay().setCursor(300, y0);
+        getdisplay().setCursor(310, y0);
         getdisplay().print(cpuspeed);
         getdisplay().print(" / ");
         int cpu_freq = esp_clk_cpu_freq() / 1000000;
         getdisplay().print(String(cpu_freq));
 
         // total RAM free
-        int Heap_free = esp_get_free_heap_size();
-        getdisplay().setCursor(202, y0 + 16);
+        uint32_t Heap_free = esp_get_free_heap_size();
+        getdisplay().setCursor(185, y0 + 16);
         getdisplay().print("Total free:");
-        getdisplay().setCursor(300, y0 + 16);
-        getdisplay().print(String(Heap_free));
+        getdisplay().setCursor(310, y0 + 16);
+        getdisplay().print(String(Heap_free / 1024) + String(" kB"));
 
-        // RAM free for task
-        int RAM_free = uxTaskGetStackHighWaterMark(NULL);
-        getdisplay().setCursor(202, y0 + 32);
-        getdisplay().print("Task free:");
-        getdisplay().setCursor(300, y0 + 32);
-        getdisplay().print(String(RAM_free));
+        // HEAP SRAM free
+        uint32_t HeapInt_free = esp_get_free_internal_heap_size();
+        getdisplay().setCursor(185, y0 + 32);
+        getdisplay().print("Heap free:");
+        getdisplay().setCursor(310, y0 + 32);
+        getdisplay().print(String(HeapInt_free) + String(" B"));
+
+        // Stack free for task
+        int Stack_free = uxTaskGetStackHighWaterMark(NULL);
+        getdisplay().setCursor(185, y0 + 48);
+        getdisplay().print("Task stack free:");
+        getdisplay().setCursor(310, y0 + 48);
+        getdisplay().print(String(Stack_free) + String(" B"));
 
     }
 
@@ -285,11 +294,17 @@ private:
         getdisplay().setCursor(120, y0 + 16);
         getdisplay().print(env_module);
 
+#ifdef BOARD_OBP60S3
         getdisplay().setCursor(x0, y0 + 32);
         getdisplay().print("Buzzer:");
         getdisplay().setCursor(120, y0 + 32);
         getdisplay().print(buzzer_mode);
 
+        getdisplay().setCursor(x0, y0 + 48);
+        getdisplay().print("Buzzer power:");
+        getdisplay().setCursor(120, y0 + 48);
+        getdisplay().print(String(buzzer_power) + "%");
+#endif
         getdisplay().setCursor(x0, y0 + 64);
         getdisplay().print("GPS:");
         getdisplay().setCursor(120, y0 + 64);
@@ -322,49 +337,47 @@ private:
         getdisplay().print(powermode);
 
         // right column
-        getdisplay().setCursor(202, y0);
+        getdisplay().setCursor(220, y0);
         getdisplay().print("Batt. sensor:");
-        getdisplay().setCursor(320, y0);
+        getdisplay().setCursor(330, y0);
         getdisplay().print(batt_sensor);
 
         // Solar sensor
-        getdisplay().setCursor(202, y0 + 16);
+        getdisplay().setCursor(220, y0 + 16);
         getdisplay().print("Solar sensor:");
-        getdisplay().setCursor(320, y0 + 16);
+        getdisplay().setCursor(330, y0 + 16);
         getdisplay().print(solar_sensor);
 
         // Generator sensor
-        getdisplay().setCursor(202, y0 + 32);
+        getdisplay().setCursor(220, y0 + 32);
         getdisplay().print("Gen. sensor:");
-        getdisplay().setCursor(320, y0 + 32);
+        getdisplay().setCursor(330, y0 + 32);
         getdisplay().print(gen_sensor);
 
         // TODO
         // Gyro sensor (rotation)
-        getdisplay().setCursor(202, y0 + 48);
+        getdisplay().setCursor(220, y0 + 48);
         getdisplay().print("Rot. sensor:");
-        getdisplay().setCursor(320, y0 + 48);
+        getdisplay().setCursor(330, y0 + 48);
         getdisplay().print(rot_sensor);
 
         // Temp.-sensor
-        // Power Mode
 
 #ifdef BOARD_OBP60S3
         // Backlight infos
-        getdisplay().setCursor(202, y0 + 64);
+        getdisplay().setCursor(220, y0 + 64);
         getdisplay().print("Backlight:");
-        getdisplay().setCursor(320, y0 + 64);
+        getdisplay().setCursor(330, y0 + 64);
         getdisplay().printf("%d%%", commonData->backlight.brightness);
         // TODO test function with OBP60 device
-        getdisplay().setCursor(202, y0 + 80);
-        getdisplay().print("Bl color:");
-        getdisplay().setCursor(320, y0 + 80);
+        getdisplay().setCursor(220, y0 + 80);
+        getdisplay().print("BL color:");
+        getdisplay().setCursor(330, y0 + 80);
         getdisplay().print(commonData->backlight.color.toName());
-        getdisplay().setCursor(202, y0 + 96);
-        getdisplay().print("Bl mode:");
-        getdisplay().setCursor(320, y0 + 96);
+        getdisplay().setCursor(220, y0 + 96);
+        getdisplay().print("BL mode:");
+        getdisplay().setCursor(330, y0 + 96);
         getdisplay().print(commonData->backlight.mode);
-        // TODO Buzzer mode and power
 #endif
 	}
 
@@ -450,10 +463,15 @@ private:
         getdisplay().setCursor(x0 + 120, y1 + 4 * dy + 5);
         getdisplay().print(commonData->status.wifiClientOn ? "on" : "off");
 
+        signalCnt++;
+        if (signalCnt >= 5) {
+            wifiLvl = WiFi.RSSI();  // set wifi signal strength only every 5 seconds
+            signalCnt = 0;
+        }
         getdisplay().setCursor(x0, y1 + 5 * dy + 5);
         getdisplay().print("SSID:");
         getdisplay().setCursor(x0 + 120, y1 + 5 * dy + 5);
-        getdisplay().print(commonData->status.wifiClientSSID);
+        getdisplay().print(commonData->status.wifiClientSSID + " / " + String(wifiLvl) + " dBm");
 
         getdisplay().setCursor(x0, y1 + 6 * dy + 5);
         getdisplay().print("IP address:");
@@ -598,11 +616,20 @@ public:
         }
         chipid = ESP.getEfuseMac();
         simulation = common.config->getBool(common.config->useSimuData);
+        use_sdcard = false;
 #ifdef BOARD_OBP40S3
         use_sdcard = common.config->getBool(common.config->useSDCard);
 #endif
         buzzer_mode = common.config->getString(common.config->buzzerMode);
-        buzzer_mode.toLowerCase();
+        if (buzzer_mode == "Short Single Beep") {
+            buzzer_mode = "short";
+        } else if (buzzer_mode == "Long Single Beep") {
+            buzzer_mode = "long";
+        } else if (buzzer_mode == "Beep Duration") {
+            buzzer_mode = "duration";
+        } else if (buzzer_mode == "Beep until Confirmation") {
+            buzzer_mode = "confirm";
+        }
         buzzer_power = common.config->getInt(common.config->buzzerPower);
         cpuspeed = common.config->getString(common.config->cpuSpeed);
         powermode = common.config->getString(common.config->powerMode);
@@ -618,6 +645,9 @@ public:
         flashLED = common.config->getString(common.config->flashLED);
         systemName = common.config->getString(common.config->systemName);
         apPasswd = common.config->getString(common.config->apPassword);
+
+        wifiLvl = 0;
+        signalCnt = 4;  // Makes sure wifi signal is evaluated on first page call
     }
 
     void setupKeys() {

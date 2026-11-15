@@ -676,26 +676,27 @@ displayGetTextBounds(":", 0, 0, &x0, &y0, &wColon, &hColon);
                 float sinx = 0;
                 float cosx = 0;
                 if (i % 6 == 0) {
-                    float x1d = 200 + rInstrument * sin(i / 180.0 * pi);
-                    float y1d = 150 - rInstrument * cos(i / 180.0 * pi);
-                    getdisplay().fillCircle((int)x1d, (int)y1d, 2, commonData->fgcolor);
                     sinx = sin(i / 180.0 * pi);
                     cosx = cos(i / 180.0 * pi);
-                }
 
-                // Draw sub scale with lines (two triangles)
-                if (i % 30 == 0) {
-                    float dx = 2;   // Line thickness = 2*dx+1
-                    float xx1 = -dx;
-                    float xx2 = +dx;
-                    float yy1 = -(rInstrument - 10);
-                    float yy2 = -(rInstrument + 10);
-                    getdisplay().fillTriangle(200 + (int)(cosx * xx1 - sinx * yy1), 150 + (int)(sinx * xx1 + cosx * yy1),
-                        200 + (int)(cosx * xx2 - sinx * yy1), 150 + (int)(sinx * xx2 + cosx * yy1),
-                        200 + (int)(cosx * xx1 - sinx * yy2), 150 + (int)(sinx * xx1 + cosx * yy2), commonData->fgcolor);
-                    getdisplay().fillTriangle(200 + (int)(cosx * xx2 - sinx * yy1), 150 + (int)(sinx * xx2 + cosx * yy1),
-                        200 + (int)(cosx * xx1 - sinx * yy2), 150 + (int)(sinx * xx1 + cosx * yy2),
-                        200 + (int)(cosx * xx2 - sinx * yy2), 150 + (int)(sinx * xx2 + cosx * yy2), commonData->fgcolor);
+                    // Draw sub scale with lines (two triangles)
+                    if (i % 30 == 0) {
+                        float dx = 2;   // Line thickness = 2*dx+1
+                        float xx1 = -dx;
+                        float xx2 = +dx;
+                        float yy1 = -(rInstrument - 10);
+                        float yy2 = -(rInstrument + 10);
+                        getdisplay().fillTriangle(200 + (int)(cosx * xx1 - sinx * yy1), 150 + (int)(sinx * xx1 + cosx * yy1),
+                            200 + (int)(cosx * xx2 - sinx * yy1), 150 + (int)(sinx * xx2 + cosx * yy1),
+                            200 + (int)(cosx * xx1 - sinx * yy2), 150 + (int)(sinx * xx1 + cosx * yy2), commonData->fgcolor);
+                        getdisplay().fillTriangle(200 + (int)(cosx * xx2 - sinx * yy1), 150 + (int)(sinx * xx2 + cosx * yy1),
+                            200 + (int)(cosx * xx1 - sinx * yy2), 150 + (int)(sinx * xx1 + cosx * yy2),
+                            200 + (int)(cosx * xx2 - sinx * yy2), 150 + (int)(sinx * xx2 + cosx * yy2), commonData->fgcolor);
+                    } else {
+                        float x1d = 200 + rInstrument * sinx;
+                        float y1d = 150 - rInstrument * cosx;
+                        getdisplay().fillCircle((int)x1d, (int)y1d, 2, commonData->fgcolor);
+                    }
                 }
             }
 

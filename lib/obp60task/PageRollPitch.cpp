@@ -176,9 +176,11 @@ public:
         {
             // Only scaling +/- 60 degrees
             if((i >= 0 && i <= 60) ||  (i >= 300 && i <= 360)){
+                float sinx=sin(i/180.0*M_PI);
+                float cosx=cos(i/180.0*M_PI);
                 // Scaling values
-                float x = 200 + (rInstrument+25)*sin(i/180.0*M_PI);  //  x-coordinate dots
-                float y = 150 - (rInstrument+25)*cos(i/180.0*M_PI);  //  y-coordinate cots
+                float x = 200 + (rInstrument+22)*sinx;  //  x-coordinate dots
+                float y = 150 - (rInstrument+22)*cosx;  //  y-coordinate cots
                 const char *ii = "";
                 switch (i) {
                     case 0: ii="0"; break;
@@ -194,22 +196,13 @@ public:
                 // Print text centered on position x, y
                 int16_t x1, y1;     // Return values of getTextBounds
                 uint16_t w, h;      // Return values of getTextBounds
-                displayGetTextBounds(ii, int(x), int(y), &x1, &y1, &w, &h); // Calc width of new string
-                getdisplay().setCursor(x-w/2, y+h/2);
                 if(i % 20 == 0){
+                    displayGetTextBounds(ii, int(x), int(y), &x1, &y1, &w, &h); // Calc width of new string
+                    getdisplay().setCursor(x-w/2, y+h/2);
                     getdisplay().setFont(&Ubuntu_Bold8pt8b);
                     getdisplay().print(ii);
-                }
 
-                // Draw sub scale with dots
-                float x1c = 200 + rInstrument*sin(i/180.0*M_PI);
-                float y1c = 150 - rInstrument*cos(i/180.0*M_PI);
-                getdisplay().fillCircle((int)x1c, (int)y1c, 2, commonData->fgcolor);
-                float sinx=sin(i/180.0*M_PI);
-                float cosx=cos(i/180.0*M_PI);
-
-                // Draw sub scale with lines (two triangles)
-                if(i % 20 == 0){
+                    // Draw sub scale with lines (two triangles)
                     float dx=2;   // Line thickness = 2*dx+1
                     float xx1 = -dx;
                     float xx2 = +dx;
@@ -221,14 +214,17 @@ public:
                     getdisplay().fillTriangle(200+(int)(cosx*xx2-sinx*yy1),150+(int)(sinx*xx2+cosx*yy1),
                             200+(int)(cosx*xx1-sinx*yy2),150+(int)(sinx*xx1+cosx*yy2),
                             200+(int)(cosx*xx2-sinx*yy2),150+(int)(sinx*xx2+cosx*yy2),commonData->fgcolor);
+                } else {
+                    // Draw sub scale with dots
+                    float x1c = 200 + rInstrument*sinx;
+                    float y1c = 150 - rInstrument*cosx;
+                    getdisplay().fillCircle((int)x1c, (int)y1c, 2, commonData->fgcolor);
                 }
             }
         }
 
         // Draw mast position pointer
         float startwidth = 8;           // Start width of pointer
-
-//        value1 = (2 * M_PI ) - value1;    // Mirror coordiante system for pointer, keel and boat
 
         if(valid1 == true || holdvalues == true || simulation == true){
             float sinx=sin(value1 + M_PI);

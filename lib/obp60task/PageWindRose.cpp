@@ -228,8 +228,10 @@ public:
         for(int i=0; i<360; i=i+10)
         {
             // Scaling values
-            float x = 200 + (rInstrument-30)*sin(i/180.0*M_PI);  //  x-coordinate dots
-            float y = 150 - (rInstrument-30)*cos(i/180.0*M_PI);  //  y-coordinate cots
+            float sinx = sin(i/180.0*M_PI);
+            float cosx = cos(i/180.0*M_PI); 
+            float x = 200 + (rInstrument-30)*sinx;  //  x-coordinate dots
+            float y = 150 - (rInstrument-30)*cosx;  //  y-coordinate cots
 
             if(i % 30 == 0){
                 // Print text centered on position x, y
@@ -247,8 +249,6 @@ public:
                 float xx2 = +dx;
                 float yy1 =  -(rInstrument-10);
                 float yy2 =  -(rInstrument+10);
-                float sinx = sin(i/180.0*M_PI);
-                float cosx = cos(i/180.0*M_PI); 
                 getdisplay().fillTriangle(200+(int)(cosx*xx1-sinx*yy1),150+(int)(sinx*xx1+cosx*yy1),
                         200+(int)(cosx*xx2-sinx*yy1),150+(int)(sinx*xx2+cosx*yy1),
                         200+(int)(cosx*xx1-sinx*yy2),150+(int)(sinx*xx1+cosx*yy2),commonData->fgcolor);
@@ -257,15 +257,15 @@ public:
                         200+(int)(cosx*xx2-sinx*yy2),150+(int)(sinx*xx2+cosx*yy2),commonData->fgcolor);
             } else {
                 // Draw sub scale with dots
-                float x1c = 200 + rInstrument*sin(i/180.0*M_PI);
-                float y1c = 150 - rInstrument*cos(i/180.0*M_PI);
+                float x1c = 200 + rInstrument*sinx;
+                float y1c = 150 - rInstrument*cosx;
                 getdisplay().fillCircle((int)x1c, (int)y1c, 2, commonData->fgcolor);
             }
         }
 
         // Draw wind pointer
         float startwidth = 8;       // Start width of pointer
-        if(valid2 == true || holdvalues == true || simulation == true){
+        if(valid1 == true || holdvalues == true || simulation == true){
             float sinx=sin(value1);     // Wind direction
             float cosx=cos(value1);
             // Normal pointer

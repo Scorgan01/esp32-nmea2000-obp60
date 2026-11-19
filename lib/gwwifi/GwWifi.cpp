@@ -234,3 +234,18 @@ String GwWifi::apIP(){
     if (! apActive) return String();
     return WiFi.softAPIP().toString();
 }
+
+// thread-safe, non-blocking version of WiFI::RSSI()
+int8_t GwWifi::getRSSI(){
+    if (wifiMutex==nullptr){
+        LOG_DEBUG(GwLog::ERROR,"GwWifi: mutex not initialized in getRSSI()");
+        return 0;
+    }
+    if (xSemaphoreTake(wifiMutex, 0)!=pdTRUE){
+        LOG_DEBUG(GwLog::LOG,"GwWifi: getRSSI() skipped - WiFi busy");
+        return 0;  // WiFi currently busy, try again later
+    }
+    int8_t level = WiFi.RSSI();
+    xSemaphoreGive(wifiMutex);
+    return level;
+}

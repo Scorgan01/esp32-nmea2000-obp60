@@ -33,6 +33,7 @@ class GwWifi{
         bool connectClient();          // Blocking version
         bool connectClientAsync();     // Non-blocking version for other tasks
         String apIP();
+        int8_t getRSSI();
         bool isApActive(){return apActive;}
         bool isClientActive(){return wifiClient->asBoolean();}
 };

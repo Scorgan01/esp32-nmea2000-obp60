@@ -14,8 +14,9 @@
 #include "Pagedata.h"
 #include "OBP60Extensions.h"
 #include "images/logo64.xbm"
-#include <esp32/clk.h>
+#include "GWWifi.h"
 #include "qrcode.h"
+#include <esp32/clk.h>
 #include <vector>
 
 #ifdef BOARD_OBP40S3
@@ -29,6 +30,8 @@
 #define PCBINFO STRINGIZE(PCBVERS)
 #define DISPLAYINFO STRINGIZE(EPDTYPE)
 #define GXEPD2INFO STRINGIZE(GXEPD2VERS)
+
+extern GwWifi gwWifi;   // Extern declaration of global WiFi instance
 
 class PageSystem : public Page
 {
@@ -465,7 +468,7 @@ private:
 
         signalCnt++;
         if (signalCnt >= 5) {
-            wifiLvl = WiFi.RSSI();  // set wifi signal strength only every 5 seconds
+            wifiLvl = gwWifi.getRSSI();  // set wifi signal strength only every 5 seconds
             signalCnt = 0;
         }
         getdisplay().setCursor(x0, y1 + 5 * dy + 5);

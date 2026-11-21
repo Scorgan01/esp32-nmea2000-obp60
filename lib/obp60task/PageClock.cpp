@@ -442,8 +442,8 @@ public:
             uint16_t wDigit, hDigit;
             uint16_t wColon, hColon;
 
-displayGetTextBounds("00", 0, 0, &x0, &y0, &wDigit, &hDigit);
-displayGetTextBounds(":", 0, 0, &x0, &y0, &wColon, &hColon);
+            displayGetTextBounds("00", 0, 0, &x0, &y0, &wDigit, &hDigit);
+            displayGetTextBounds(":", 0, 0, &x0, &y0, &wColon, &hColon);
 
             uint16_t totalWidth = 3 * wDigit + 2 * wColon;
 
@@ -642,43 +642,44 @@ displayGetTextBounds(":", 0, 0, &x0, &y0, &wColon, &hColon);
             getdisplay().print("SunS");                          // Name
             
             int rInstrument = 110;     // Radius of clock
-            float pi = 3.141592;
 
             getdisplay().fillCircle(200, 150, rInstrument + 10, commonData->fgcolor);    // Outer circle
             getdisplay().fillCircle(200, 150, rInstrument + 7, commonData->bgcolor);     // Outer circle
 
-            for (int i = 0; i < 360; i = i + 1)
+            for (int i = 0; i < 360; i += 6)
             {
-                // Scaling values
-                float x = 200 + (rInstrument - 30) * sin(i / 180.0 * pi);  //  x-coordinate dots
-                float y = 150 - (rInstrument - 30) * cos(i / 180.0 * pi);  //  y-coordinate dots
-                const char* ii = "";
-                switch (i)
-                {
-                case 0: ii = "12"; break;
-                case 90: ii = "3"; break;
-                case 180: ii = "6"; break;
-                case 270: ii = "9"; break;
-                default: break;
-                }
+                float sinx = 0;
+                float cosx = 0;
+                sinx = sinf(i * DEG_TO_RAD);
+                cosx = cosf(i * DEG_TO_RAD);
+ //               sinx = sinf(i / 180.0 * pi);
+   //             cosx = cosf(i / 180.0 * pi);
 
-                // Print text centered on position x, y
-                int16_t x1c, y1c;     // Return values of getTextBounds
-                uint16_t wc, hc;      // Return values of getTextBounds
-                displayGetTextBounds(ii, int(x), int(y), &x1c, &y1c, &wc, &hc); // Calc width of new string
-                getdisplay().setCursor(x - wc / 2, y + hc / 2);
+                // Scaling values
                 if (i % 90 == 0) {
+                    float x = 200 + (rInstrument - 30) * sinx;  //  x-coordinate dots
+                    float y = 150 - (rInstrument - 30) * cosx;  //  y-coordinate dots
+                    const char* ii = "";
+                    switch (i)
+                    {
+                    case 0: ii = "12"; break;
+                    case 90: ii = "3"; break;
+                    case 180: ii = "6"; break;
+                    case 270: ii = "9"; break;
+                    default: break;
+                    }
+
+                    // Print text centered on position x, y
+                    int16_t x1c, y1c;     // Return values of getTextBounds
+                    uint16_t wc, hc;      // Return values of getTextBounds
+                    displayGetTextBounds(ii, int(x), int(y), &x1c, &y1c, &wc, &hc); // Calc width of new string
+                    getdisplay().setCursor(x - wc / 2, y + hc / 2);
                     getdisplay().setFont(&Ubuntu_Bold12pt8b);
                     getdisplay().print(ii);
                 }
 
                 // Draw sub scale with dots
-                float sinx = 0;
-                float cosx = 0;
                 if (i % 6 == 0) {
-                    sinx = sin(i / 180.0 * pi);
-                    cosx = cos(i / 180.0 * pi);
-
                     // Draw sub scale with lines (two triangles)
                     if (i % 30 == 0) {
                         float dx = 2;   // Line thickness = 2*dx+1
@@ -693,9 +694,9 @@ displayGetTextBounds(":", 0, 0, &x0, &y0, &wColon, &hColon);
                             200 + (int)(cosx * xx1 - sinx * yy2), 150 + (int)(sinx * xx1 + cosx * yy2),
                             200 + (int)(cosx * xx2 - sinx * yy2), 150 + (int)(sinx * xx2 + cosx * yy2), commonData->fgcolor);
                     } else {
-                        float x1d = 200 + rInstrument * sinx;
-                        float y1d = 150 - rInstrument * cosx;
-                        getdisplay().fillCircle((int)x1d, (int)y1d, 2, commonData->fgcolor);
+                        int x1d = 200 + (int)(rInstrument * sinx);
+                        int y1d = 150 - (int)(rInstrument * cosx);
+                        getdisplay().fillCircle(x1d, y1d, 2, commonData->fgcolor);
                     }
                 }
             }
@@ -749,8 +750,8 @@ displayGetTextBounds(":", 0, 0, &x0, &y0, &wColon, &hColon);
             // Draw hour pointer
             float startwidth = 8;       // Start width of pointer
             if (valid1 == true || (source == 'R' && commonData->data.rtcValid) || holdvalues == true || simulation == true) {
-                float sinx = sin(hour * 30.0 * pi / 180);     // Hour
-                float cosx = cos(hour * 30.0 * pi / 180);
+                float sinx = sinf(hour * 30.0 * DEG_TO_RAD);     // Hour
+                float cosx = cosf(hour * 30.0 * DEG_TO_RAD);
                 // Normal pointer
                 // Pointer as triangle with center base 2*width
                 float xx1 = -startwidth;
@@ -775,8 +776,8 @@ displayGetTextBounds(":", 0, 0, &x0, &y0, &wColon, &hColon);
             // Draw minute pointer
             startwidth = 8;       // Start width of pointer
             if (valid1 == true || (source == 'R' && commonData->data.rtcValid) || holdvalues == true || simulation == true) {
-                float sinx = sin(minute * 6.0 * pi / 180);     // Minute
-                float cosx = cos(minute * 6.0 * pi / 180);
+                float sinx = sinf(minute * 6.0 * DEG_TO_RAD);     // Minute
+                float cosx = cosf(minute * 6.0 * DEG_TO_RAD);
                 // Normal pointer
                 // Pointer as triangle with center base 2*width
                 float xx1 = -startwidth;

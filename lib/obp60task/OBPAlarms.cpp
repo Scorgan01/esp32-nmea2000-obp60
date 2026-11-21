@@ -335,8 +335,8 @@ void Alarms::checkAlarms()
     initAlarmData(); // We need to test and perform alarm data initialization for boat data types which have not been available at device startup
 
     for (auto& alarm : alarmList) {
-        LOG_DEBUG(GwLog::DEBUG, "checkAlarms: boat value: %s, low limit: %.2f, high limit: %.2f, value: %.2f, valid: %d, set: %d",
-            alarm.boatValue->getName().c_str(), alarm.lowLimit, alarm.highLimit, alarm.boatValue->value, alarm.boatValue->valid, alarm.alarmSet);
+        // LOG_DEBUG(GwLog::DEBUG, "checkAlarms: boat value: %s, low limit: %.2f, high limit: %.2f, value: %.2f, valid: %d, set: %d",
+        //    alarm.boatValue->getName().c_str(), alarm.lowLimit, alarm.highLimit, alarm.boatValue->value, alarm.boatValue->valid, alarm.alarmSet);
 
         // Helper: drop any pending (delayed) alarm condition
         auto clearPending = [&alarm]() {
@@ -432,7 +432,7 @@ void Alarms::checkAlarms()
             // INACTIVE with suspend time not over, or SNOOZE with snooze time not over
             clearPending();
         }
-        LOG_DEBUG(GwLog::DEBUG, "checkAlarms: alarm state for alarm: %s: %d", alarm.boatValue->getName().c_str(), getAlarmState(alarm));
+        // LOG_DEBUG(GwLog::DEBUG, "checkAlarms: alarm state for alarm: %s: %d", alarm.boatValue->getName().c_str(), getAlarmState(alarm));
     }
 }
 
